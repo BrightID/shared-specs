@@ -1,2 +1,14 @@
 # aura-decisions
-ADRs and cross-repo specs for Aura — decisions, why, and roads not taken
+
+Decisions and specs that apply across Aura repos, in one place.
+
+- `decisions/` — ADRs: what we decided, why, and what we considered and rejected.
+- `specs/` — cross-repo specs. Free-form markdown for now; convert later if needed.
+
+## How it works
+
+A decision is real when a human states it (here, or in an issue/PR that lands here).
+Agents draft; humans decide. Anything can be amended by a later ADR — nothing is precious.
+
+Format: [MADR-lite](decisions/template.md). Number sequentially, never reuse numbers.
+Superseded ADRs stay in place, marked `superseded by ADR-NNNN`.
