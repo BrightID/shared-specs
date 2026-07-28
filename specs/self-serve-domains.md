@@ -1,32 +1,57 @@
-# Aura: A Domain-Agnostic Trust Protocol
-## Design and Implementation Plan
+# Self-Serve Domains in Aura
+## A Protocol Spec for Creating, Publishing, and Testing New Domains
 
 ---
 
 ## 1. Overview
 
-Aura currently operates as a single-purpose system. Participants join a network
-and are organized into an evaluation hierarchy — Manager, Trainer, Player/Subject —
-in which each tier evaluates the tier below it. Enough accumulated score lets a
-Subject prove uniqueness: that they correspond to one real, distinct human. This
-proof is consumed by third-party applications and integrations as a sybil-resistance
-guarantee.
+Aura today ships one built-in domain of trust — uniqueness — computed by a fixed
+evaluation hierarchy (Manager, Trainer, Player/Subject) and operated by teams
+whose configuration (seed evaluators, thresholds, evaluation criteria, cadence)
+is set centrally. Third-party applications consume the resulting score as a
+sybil-resistance guarantee. Everything the protocol currently knows about "what
+trust means" is baked into that one domain and into the team settings that run
+it.
 
-This document specifies an extension of Aura from a single fixed domain
-(uniqueness) into a general-purpose trust protocol: any application can define its
-own domain of trust — food reviews, freelance-marketplace trust, local-guide
-reputation, DAO contributor reputation, or anything else — configure how evaluation
-works within that domain, and rely on Aura's existing identity and graph
-infrastructure to compute and defend a reputation score specific to that domain.
+This document specifies the extension of Aura from a system with one built-in
+domain into a self-serve platform on which anyone can **create, publish, and
+test their own domain of trust** — food reviews, freelance-marketplace trust,
+DAO contributor reputation, local-guide reputation, or anything else — while
+continuing to rely on Aura's existing identity layer and graph machinery for
+sybil resistance and score propagation.
+
+The central design commitment is that a new domain does not have to be authored
+from scratch. **Existing domains and existing team settings are treated as
+first-class starting points.** A domain author picks an existing domain (or an
+existing team's operational configuration) as a template, copies its role
+schema, seed-group shape, scoring parameters, evaluation criteria, and other
+defaults into a new domain, and edits from there. Templates are copy-on-create
+defaults, not runtime inheritance: once a new domain is published, it evolves
+independently of the domain or team it was seeded from, and later changes to
+the source do not flow back into the copy.
+
+The authoring lifecycle this doc specifies has three stages:
+
+- **Create.** Draft a domain by forking an existing domain or team settings as
+  a template, then edit its role schema, seed group, scoring parameters,
+  evaluation criteria, and verification thresholds.
+- **Publish.** Register the domain so its attestations begin being counted by
+  the scoring engine and its scores become queryable by integrating
+  applications.
+- **Test.** Exercise the domain against real (or shadow) activity to confirm
+  that its configuration behaves as intended before committing to it — either
+  in a sandboxed pre-publication mode, or as a published domain whose outputs
+  are treated as provisional by consumers.
 
 This produces two layers:
 
-- **Layer 0 — Identity.** The existing uniqueness guarantee: one participant
-  corresponds to exactly one identity in the network. Unchanged, and continues to
-  underpin sybil resistance for everything built on top of it.
-- **Layer 1 — Domains.** A new, generalized layer in which any application
-  registers a domain, defines what trust means within it, and uses Aura's graph
-  and scoring machinery to compute per-domain reputation for its participants.
+- **Layer 0 — Identity.** The existing uniqueness guarantee, and the existing
+  teams that operate it. Unchanged, and continues to underpin sybil resistance
+  for everything built on top of it.
+- **Layer 1 — Domains.** A new, generalized layer in which any participant can
+  register a domain — seeded from an existing domain or team settings when
+  desired — publish it to real evaluators, and test its behavior before
+  promoting it to general use.
 
 ---
 
