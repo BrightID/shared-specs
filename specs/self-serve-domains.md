@@ -25,8 +25,8 @@ The central design commitment is that a new domain does not have to be authored
 from scratch. **Existing domains and existing team settings are treated as
 first-class starting points.** A domain author picks an existing domain (or an
 existing team's operational configuration) as a template, copies its role
-schema, seed-group shape, scoring parameters, evaluation criteria, and other
-defaults into a new domain, and edits from there. Templates are copy-on-create
+schema, scoring parameters, verification thresholds, evaluation criteria, and
+other defaults into a new domain, and edits from there. Templates are copy-on-create
 defaults, not runtime inheritance: once a new domain is published, it evolves
 independently of the domain or team it was seeded from, and later changes to
 the source do not flow back into the copy.
@@ -34,8 +34,10 @@ the source do not flow back into the copy.
 The authoring lifecycle this doc specifies has three stages:
 
 - **Create.** Draft a domain by forking an existing domain or team settings as
-  a template, then edit its role schema, seed group, scoring parameters,
-  evaluation criteria, and verification thresholds.
+  a template, then edit its role schema, scoring parameters, evaluation
+  criteria, and verification thresholds; when creating the domain, also
+  designate the initial team's owners, who become that team's first managers
+  and the starting point of its manager-energy calculation (Section 4.4).
 - **Publish.** Register the domain so its attestations begin being counted by
   the scoring engine and its scores become queryable by integrating
   applications.
@@ -61,8 +63,7 @@ This produces two layers:
 | Term | Definition |
 |---|---|
 | **Identity** | A single verified-unique participant in the Layer 0 network. |
-| **Domain** | An application-defined context of trust, with its own role schema, seed group, and scoring configuration. |
-| **Seed Group** | The initial set of identities a domain owner designates as trusted at domain creation, from which trust propagates. |
+| **Domain** | An application-defined context of trust, with its own role schema and scoring configuration, operated by one or more teams (see Section 4.6). |
 | **Attestation** | A signed record of one identity evaluating another within a specific domain. |
 | **Score** | A single continuous trust value, in [0, 1], for a given (identity, domain) pair, derived from the attestation graph. |
 | **Tier** | A named label attached to a range of scores within a domain (e.g., Manager, Trainer, Player), if the domain uses named tiers. |
@@ -86,7 +87,7 @@ This produces two layers:
 |---|---|
 | One-identity-per-participant guarantee | Role names within the domain |
 | Graph structure recording who evaluated whom, when | Number of tiers in the evaluation hierarchy — flat or multi-tier |
-| Score propagation from seed identities | The seed group — who is trusted at domain creation |
+| Score propagation from designated origin identities | The initial team's owners — who are trusted at team creation and serve as the origin for score propagation |
 | Attestation and signature format | Score thresholds for what qualifies as each tier in that domain |
 | Sybil resistance (inherited from Layer 0) | Evaluation criteria — what a valid evaluation means |
 | Default decay behavior and computational bounds | Domain-specific parameter values within those bounds |
@@ -146,9 +147,10 @@ with no default interaction between domains (see Section 7).
 A domain has one or more **teams** operating it (see Section 4.6). A team is an
 operational configuration of the domain — its team owners, scoring parameters,
 and verification thresholds — not a separate domain. The domain-level
-`seed_group`, `scoring_parameters`, and `verification_thresholds` below define
-the initial team's owners and settings; additional teams registered on the
-domain carry their own team-scoped equivalents.
+`scoring_parameters` and `verification_thresholds` below define the defaults a
+team inherits when it is registered on the domain; the initial team's owners
+are supplied at domain registration (see Section 4.5) and every team carries
+its own team-scoped values thereafter.
 
 ```
 Domain {
@@ -156,7 +158,6 @@ Domain {
   name:                   string
   description:            string
   role_schema:            RoleSchema | "flat"
-  seed_group:             [identity_id]
   scoring_parameters: {
     decay_rate:                     float   // bounded [0, 1], protocol-enforced
     propagation_depth:              int     // bounded [1, 6], protocol-enforced
@@ -205,8 +206,8 @@ Attestation {
 
 ### 4.4 Scoring Engine
 
-For each (identity, domain) pair, the engine computes a score through an
-iterative propagation process: trust originates at the domain's seed group and
+For each (identity, domain, team) tuple, the engine computes a score through
+an iterative propagation process: trust originates at the team's owners and
 flows outward along active (non-revoked) evaluation edges. Each hop's
 contribution is weighted by the evaluator's own current score and attenuated by
 the domain's decay rate and propagation depth. Disputed attestations count at
@@ -259,9 +260,11 @@ by the normal propagation path.
 
 ```
 POST /domains
-  { name, role_schema, seed_group, scoring_parameters,
+  { name, role_schema, initial_team_owners, scoring_parameters,
     verification_thresholds, evaluation_criteria, visibility }
-  → { domain_id }
+  → { domain_id, initial_team_id }
+  // `initial_team_owners` seeds the domain's initial team; additional teams
+  // are registered via POST /domains/{domain_id}/teams below.
 
 GET /domains/{domain_id}
   → current domain configuration
@@ -413,9 +416,10 @@ advance of formal admission to a team, without inflating scores in the interim.
 ### 7.1 Domain Isolation
 
 Each domain is independently owned and fully configured by the application that
-registers it. A domain's role schema, seed group, scoring parameters, evaluation
-criteria, and verification thresholds are set exclusively by that domain's
-owner, and domains do not affect one another by default: they are isolated. A
+registers it. A domain's role schema, scoring parameters, evaluation criteria,
+and verification thresholds — along with the initial team's owners — are set
+exclusively by that domain's owner, and domains do not affect one another by
+default: they are isolated. A
 single identity can hold a high score in one domain and no score at all in
 another, simultaneously, with no conflict.
 
@@ -602,7 +606,7 @@ activity.
 {
   "name": "local-food-reviews",
   "role_schema": "flat",
-  "seed_group": ["<initial trusted local reviewers>"],
+  "initial_team_owners": ["<initial trusted local reviewers>"],
   "scoring_parameters": {
     "decay_rate": 0.15,
     "propagation_depth": 3,
@@ -626,7 +630,7 @@ activity.
       { "tier_name": "senior_freelancer", "evaluates": "verified_client" }
     ]
   },
-  "seed_group": ["<platform-vetted senior freelancers>"],
+  "initial_team_owners": ["<platform-vetted senior freelancers>"],
   "scoring_parameters": {
     "decay_rate": 0.05,
     "propagation_depth": 2,
@@ -650,7 +654,7 @@ activity.
       { "tier_name": "core_maintainer", "evaluates": "contributor" }
     ]
   },
-  "seed_group": ["<founding core maintainers>"],
+  "initial_team_owners": ["<founding core maintainers>"],
   "scoring_parameters": {
     "decay_rate": 0.02,
     "propagation_depth": 4,
