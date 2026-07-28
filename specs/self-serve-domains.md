@@ -7,7 +7,7 @@
 
 Aura today ships one built-in domain of trust — uniqueness — computed by a fixed
 evaluation hierarchy (Manager, Trainer, Player/Subject) and operated by one or
-more teams whose configuration (seed evaluators, thresholds, evaluation
+more teams whose configuration (team owners, thresholds, evaluation
 criteria, cadence) is set centrally. Each team computes scores for its
 participants independently; third-party applications typically consume an
 aggregate across teams as a sybil-resistance guarantee. Everything the protocol
@@ -69,12 +69,12 @@ This produces two layers:
 | **Eligibility Threshold** | The minimum score a participant must hold before their attestations are counted by the scoring engine. |
 | **Revocation** | Removal of a previously-submitted attestation from score computation. |
 | **Dispute** | A flag placed on an attestation pending review, during which it may count at reduced weight. |
-| **Team** | An operational configuration of a domain: a seed group of team owners, scoring parameters, evaluation-criteria interpretation, and verification thresholds. A domain may be operated by one or more teams; each team computes scores independently (see Section 4.6). |
-| **Team Settings** | The team-scoped configuration — seed group, scoring parameters, evaluation criteria, verification thresholds — that a new team or new domain may copy as a starting point, distinct from the domain-level role schema shared across all teams operating that domain. |
-| **Team Owner** | An identity that bootstraps and administers a team; team owners collectively form the initial members of the top evaluation tier of their team and expand the team by evaluating other members. |
+| **Team** | An operational configuration of a domain: a set of team owners, scoring parameters, evaluation-criteria interpretation, and verification thresholds. A domain may be operated by one or more teams; each team computes scores independently (see Section 4.6). |
+| **Team Settings** | The team-scoped configuration — team owners, scoring parameters, evaluation criteria, verification thresholds — that a new team or new domain may copy as a starting point, distinct from the domain-level role schema shared across all teams operating that domain. |
+| **Team Owner** | An identity that bootstraps and administers a team. Team owners become the first managers of their team (the initial members of its top evaluation tier), can add or remove other owners by a 2/3 majority vote among current owners, and expand the team by evaluating other members. |
 | **Manager Energy** | A distinct calculation used for the top evaluation tier when a domain uses a multi-tier role schema. Energy originates at team owners, iterates a small bounded number of times, and is redistributed — not added — by positive top-tier evaluations (see Section 4.4). |
 | **Aggregate Score** | An app-facing score for an identity in a domain, derived by combining that identity's team-local scores across the teams operating the domain. Aggregation is a consumer-side or league-side concern; the protocol computes per-team scores that aggregation builds on. |
-| **Provisional Participation** | A pre-eligibility mode in which a participant may submit attestations that are recorded but do not yet contribute to any team's scoring, used to bootstrap involvement before a team's seed group evaluates them. |
+| **Provisional Participation** | A pre-eligibility mode in which a participant may submit attestations that are recorded but do not yet contribute to any team's scoring, used to bootstrap involvement before a team's owners have evaluated them. |
 
 ---
 
@@ -144,11 +144,11 @@ with no default interaction between domains (see Section 7).
 ### 4.2 Domain Registry
 
 A domain has one or more **teams** operating it (see Section 4.6). A team is an
-operational configuration of the domain — its seed group (the team owners),
-scoring parameters, and verification thresholds — not a separate domain. The
-domain-level `seed_group`, `scoring_parameters`, and `verification_thresholds`
-below define the settings of the domain's initial team; additional teams
-registered on the domain carry their own team-scoped equivalents.
+operational configuration of the domain — its team owners, scoring parameters,
+and verification thresholds — not a separate domain. The domain-level
+`seed_group`, `scoring_parameters`, and `verification_thresholds` below define
+the initial team's owners and settings; additional teams registered on the
+domain carry their own team-scoped equivalents.
 
 ```
 Domain {
@@ -179,7 +179,7 @@ RoleSchema {
 Team {
   team_id:                    string, unique within a domain
   domain_id:                  string
-  team_owners:                [identity_id]         // seed group for this team
+  team_owners:                [identity_id]         // owners who bootstrap and administer this team
   scoring_parameters:         ScoringParameters     // may override domain defaults within protocol bounds
   verification_thresholds:    { tier_name: float }
   manager_energy_iterations:  int                   // small bounded integer, applies only when role_schema has a top tier
@@ -231,9 +231,9 @@ participants. The engine should:
 
 **Multi-team scoring.** In a domain with multiple teams (Section 4.6), the
 propagation process described above runs independently for each team, using
-that team's own team-owner seed group and (possibly overridden) scoring
-parameters, producing a per-team score for the participant. In single-team
-domains, this distinction collapses.
+that team's own owners and (possibly overridden) scoring parameters, producing
+a per-team score for the participant. In single-team domains, this distinction
+collapses.
 
 **Manager energy — a distinct calculation for the top tier.** When a domain's
 role schema includes a top evaluation tier (historically called "Manager"),
@@ -303,8 +303,8 @@ GET /domains/{domain_id}/teams
 A domain may be operated by one or more **teams**. A team is an operational
 configuration of a domain (Section 4.2), not a separate domain. Every team
 operating a given domain works from the same domain-level role schema and
-evaluation-criteria description, but with its own team-scoped seed group,
-scoring parameters, and verification thresholds.
+evaluation-criteria description, but with its own team owners, scoring
+parameters, and verification thresholds.
 
 Two consequences follow:
 
@@ -337,12 +337,12 @@ and the resilience properties described in Section 7.
 
 ## 5. Domain Bootstrapping
 
-A domain is empty of meaning at creation — only the seed group holds a nonzero
-score. Growth from there follows a fixed sequence:
+A domain is empty of meaning at creation — only the initial team's owners hold
+a nonzero score. Growth from there follows a fixed sequence:
 
-1. Seed group members evaluate an initial cohort of participants directly.
+1. Team owners evaluate an initial cohort of participants directly.
 2. Newly-evaluated participants receive a score computed from their proximity to
-   the seed group and the strength of the evaluations they received.
+   the team's owners and the strength of the evaluations they received.
 3. A participant becomes eligible to submit attestations that count toward the
    domain's computation once their own score crosses
    `evaluator_eligibility_threshold` (flat domains), or the threshold for a tier
@@ -350,13 +350,13 @@ score. Growth from there follows a fixed sequence:
 4. Tier assignment then proceeds automatically as described in Section 4.4.
 
 **Manual override path.** Real domains will occasionally need to inject trust
-outside the normal evaluation path — e.g., a domain owner onboarding a
-known-credible expert on day one, before that person has accumulated any
-attestations. Rather than treating this as a gap, it's worth exposing narrowly:
-a domain owner can add an identity directly to the seed group post-launch, but
-cannot directly set an arbitrary score for a non-seed participant. This keeps
-the one privileged action (expanding the seed group) auditable and distinct
-from the normal, attestation-driven scoring path.
+outside the normal evaluation path — e.g., a team onboarding a known-credible
+expert on day one, before that person has accumulated any attestations. Rather
+than treating this as a gap, it's worth exposing narrowly: existing team owners
+can add another identity as a team owner post-launch (per the 2/3 majority rule
+in Section 2), but cannot directly set an arbitrary score for a non-owner
+participant. This keeps the one privileged action (expanding the team's owner
+set) auditable and distinct from the normal, attestation-driven scoring path.
 
 **Starting from existing settings.** A new domain does not need to be authored
 from scratch, and neither does a new team on an existing domain. Two copying
@@ -368,7 +368,7 @@ paths are first-class:
   applied at create time; the new domain evolves independently thereafter.
 - **Copy a team's settings.** When creating a domain, or registering an
   additional team on an existing domain, the author may copy an existing team's
-  settings — seed group shape, scoring parameters, evaluation criteria,
+  settings — team-owner set, scoring parameters, evaluation criteria,
   verification thresholds — as starting defaults. This gives a new team a
   known-working configuration to iterate from rather than starting from
   protocol defaults.
@@ -377,7 +377,7 @@ Both copies are point-in-time snapshots, not live inheritance. Later changes to
 the source domain or team do not flow back into a copy.
 
 **Provisional participation.** Anyone may begin submitting attestations in a
-domain before any team's seed group has evaluated them. Provisional
+domain before any team's owners have evaluated them. Provisional
 attestations are recorded but do not contribute to any team's scoring; they
 become eligible to count only once the submitter crosses the relevant team's
 `evaluator_eligibility_threshold`. This lets participation begin naturally in
@@ -388,7 +388,7 @@ advance of formal admission to a team, without inflating scores in the interim.
 ## 6. Integration Flow
 
 1. **Domain registration.** An application registers a domain: name, role schema
-   (or "flat"), and the initial team's settings — seed group, scoring parameters,
+   (or "flat"), and the initial team's settings — team owners, scoring parameters,
    verification thresholds. Additional teams may be registered on the domain
    later (Section 4.5).
 2. **Identity linking.** A participant links their Aura identity to their
@@ -439,8 +439,8 @@ Because a domain may be operated by more than one team (Section 4.6), the
 domain does not depend on any single team being healthy for its app-facing
 outputs to remain useful:
 
-- **Team-level compromise stays team-level.** If a team's seed group is
-  captured, or its evaluations become systematically biased or collusive,
+- **Team-level compromise stays team-level.** If a team's owners are captured,
+  or its evaluations become systematically biased or collusive,
   applications and aggregators can exclude that team from their aggregate
   without withdrawing from the domain. The other teams operating the domain
   continue to compute team-local scores unaffected, so the domain as a whole
@@ -540,7 +540,7 @@ activity.
   configuration flexibility to domain owners.
 - **Tier assignment is automatic**, derived purely from score against
   `verification_thresholds` (Section 4.4), with a narrow, auditable manual path
-  limited to seed-group expansion (Section 5) — not arbitrary score-setting.
+  limited to team-owner expansion (Section 5) — not arbitrary score-setting.
 - **Score computation is incremental and batched by default**, with real-time
   recomputation as an opt-in, to keep cost bounded as domains scale (Section
   4.4).
