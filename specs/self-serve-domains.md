@@ -5,14 +5,16 @@
 
 ## 1. Overview
 
-Aura today ships one built-in domain of trust — uniqueness — computed by a fixed
-evaluation hierarchy (Manager, Trainer, Player/Subject) and operated by one or
-more teams whose configuration (team owners, thresholds, evaluation
-criteria, cadence) is set centrally. Each team computes scores for its
-participants independently; third-party applications typically consume an
-aggregate across teams as a sybil-resistance guarantee. Everything the protocol
-currently knows about "what trust means" is baked into that one domain and into
-the team settings that run it.
+Aura today ships one built-in domain of trust — uniqueness — with a set of
+opt-in **roles**: Managers evaluate Trainers and other Managers, Trainers
+evaluate Players, and Players evaluate Subjects. The domain is operated by
+one or more teams whose configuration (team owners, evaluation criteria,
+per-role level definitions, cadence) is set centrally. Each team computes
+scores for its participants independently, per role; third-party
+applications typically consume an aggregate across teams as a
+sybil-resistance guarantee. Everything the protocol currently knows about
+"what trust means" is baked into that one domain and into the team settings
+that run it.
 
 This document specifies the extension of Aura from a system with one built-in
 domain into a self-serve platform on which anyone can **create, publish, and
@@ -25,19 +27,20 @@ The central design commitment is that a new domain does not have to be authored
 from scratch. **Existing domains and existing team settings are treated as
 first-class starting points.** A domain author picks an existing domain (or an
 existing team's operational configuration) as a template, copies its role
-schema, scoring parameters, verification thresholds, evaluation criteria, and
-other defaults into a new domain, and edits from there. Templates are copy-on-create
-defaults, not runtime inheritance: once a new domain is published, it evolves
-independently of the domain or team it was seeded from, and later changes to
-the source do not flow back into the copy.
+hierarchy, scoring parameters, evaluation criteria, per-role level definitions,
+and other defaults into a new domain, and edits from there. Templates are
+copy-on-create defaults, not runtime inheritance: once a new domain is
+published, it evolves independently of the domain or team it was seeded from,
+and later changes to the source do not flow back into the copy.
 
 The authoring lifecycle this doc specifies has three stages:
 
 - **Create.** Draft a domain by forking an existing domain or team settings as
-  a template, then edit its role schema, scoring parameters, evaluation
-  criteria, and verification thresholds; when creating the domain, also
-  designate the initial team's owners, who become that team's first managers
-  and the starting point of its manager-energy calculation (Section 4.4).
+  a template, then edit its role hierarchy, scoring parameters, evaluation
+  criteria, and per-role level definitions; when creating the domain, also
+  designate the initial team's owners, who become that team's first Managers
+  (the top role in the domain's hierarchy) and the origin of its manager-energy
+  calculation (Section 4.4).
 - **Publish.** Register the domain so its attestations begin being counted by
   the scoring engine and its scores become queryable by integrating
   applications.
@@ -63,19 +66,24 @@ This produces two layers:
 | Term | Definition |
 |---|---|
 | **Identity** | A single verified-unique participant in the Layer 0 network. |
-| **Domain** | An application-defined context of trust, with its own role schema and scoring configuration, operated by one or more teams (see Section 4.6). |
-| **Attestation** | A signed record of one identity evaluating another within a specific domain. |
-| **Score** | A single continuous trust value, in [0, 1], for a given (identity, domain) pair, derived from the attestation graph. |
-| **Tier** | A named label attached to a range of scores within a domain (e.g., Manager, Trainer, Player), if the domain uses named tiers. |
-| **Eligibility Threshold** | The minimum score a participant must hold before their attestations are counted by the scoring engine. |
+| **Domain** | An application-defined context of trust, with its own role hierarchy and scoring configuration, operated by one or more teams (see Section 4.6). |
+| **Attestation** | A signed record of one identity evaluating another within a specific domain, submitted in the evaluator's chosen role. |
+| **Score** | A single continuous trust value, in [0, 1], for a given (identity, domain, team, role) tuple, derived from the attestation graph. |
+| **Role** | A named position in a domain's evaluation hierarchy that determines who a participant is permitted to evaluate. Roles are **opt-in**: a participant chooses to take a role on and is then evaluated by participants in the role directly above them in the hierarchy. |
+| **Subject** | A participant being evaluated in a domain — the person whose fit for the domain's meaning of trust is being assessed. Every participant is at least a Subject; further roles are opt-in. |
+| **Player** | An opt-in role: a participant who evaluates Subjects. Becoming a Player is open to any Layer 0 identity. |
+| **Trainer** | An opt-in advanced role: a participant who evaluates Players. Trainers are themselves evaluated by Managers. |
+| **Manager** | An opt-in top role: a participant who evaluates Trainers and other Managers. In every team, the team's owners become that team's first Managers. |
+| **Level** | An optional, team-defined label attached to a participant within a specific (team, role) based on their score in that role and any additional team-specified requirements (e.g., a minimum confidence on incoming evaluations, or a requirement that evaluations come from participants at a specified level). Levels are neither automatic score bands at the domain level nor a substitute for the role itself — taking on a role is an opt-in act; earning a level in that role is a downstream, team-scoped labelling. |
+| **Eligibility Threshold** | The minimum score a participant must hold in an evaluator role before their attestations in that role are counted by the scoring engine. |
 | **Revocation** | Removal of a previously-submitted attestation from score computation. |
 | **Dispute** | A flag placed on an attestation pending review, during which it may count at reduced weight. |
-| **Team** | An operational configuration of a domain: a set of team owners, scoring parameters, evaluation-criteria interpretation, and verification thresholds. A domain may be operated by one or more teams; each team computes scores independently (see Section 4.6). |
-| **Team Settings** | The team-scoped configuration — team owners, scoring parameters, evaluation criteria, verification thresholds — that a new team or new domain may copy as a starting point, distinct from the domain-level role schema shared across all teams operating that domain. |
-| **Team Owner** | An identity that bootstraps and administers a team. Team owners become the first managers of their team (the initial members of its top evaluation tier), can add or remove other owners by a 2/3 majority vote among current owners, and expand the team by evaluating other members. |
-| **Manager Energy** | A distinct calculation used for the top evaluation tier when a domain uses a multi-tier role schema. Energy originates at team owners, iterates a small bounded number of times, and is redistributed — not added — by positive top-tier evaluations (see Section 4.4). |
-| **Aggregate Score** | An app-facing score for an identity in a domain, derived by combining that identity's team-local scores across the teams operating the domain. Aggregation is a consumer-side or league-side concern; the protocol computes per-team scores that aggregation builds on. |
-| **Provisional Participation** | A pre-eligibility mode in which a participant may submit attestations that are recorded but do not yet contribute to any team's scoring, used to bootstrap involvement before a team's owners have evaluated them. |
+| **Team** | An operational configuration of a domain: a set of team owners, scoring parameters, evaluation-criteria interpretation, and (optionally) per-role level definitions. A domain may be operated by one or more teams; each team computes scores independently, per role (see Section 4.6). |
+| **Team Settings** | The team-scoped configuration — team owners, scoring parameters, evaluation criteria, per-role level definitions — that a new team or new domain may copy as a starting point, distinct from the domain-level role hierarchy shared across all teams operating that domain. |
+| **Team Owner** | An identity that bootstraps and administers a team. Team owners become the team's first Managers (top role), can add or remove other owners by a 2/3 majority vote among current owners, and expand the team by evaluating Trainers and other Managers. |
+| **Manager Energy** | A bounded, redistributive calculation used to score participants in the Manager role. Energy originates at team owners (the team's first Managers), iterates a small bounded number of times, and is redistributed — not added — by positive Manager evaluations (see Section 4.4). |
+| **Aggregate Score** | An app-facing score for an identity in a domain, derived by combining that identity's team-local scores across the teams operating the domain. Aggregation is a consumer-side or league-side concern; the protocol computes per-(team, role) scores that aggregation builds on. |
+| **Provisional Participation** | A pre-eligibility mode in which a participant who has opted into an evaluator role may submit attestations in that role that are recorded but do not yet contribute to any team's scoring, used to bootstrap involvement before an above-role participant has evaluated them. |
 
 ---
 
@@ -85,39 +93,49 @@ This produces two layers:
 
 | Provided by the protocol (mechanism) | Defined by the domain owner (meaning) |
 |---|---|
-| One-identity-per-participant guarantee | Role names within the domain |
-| Graph structure recording who evaluated whom, when | Number of tiers in the evaluation hierarchy — flat or multi-tier |
-| Score propagation from designated origin identities | The initial team's owners — who are trusted at team creation and serve as the origin for score propagation |
-| Attestation and signature format | Score thresholds for what qualifies as each tier in that domain |
-| Sybil resistance (inherited from Layer 0) | Evaluation criteria — what a valid evaluation means |
-| Default decay behavior and computational bounds | Domain-specific parameter values within those bounds |
+| One-identity-per-participant guarantee | Role names in the domain's evaluation hierarchy |
+| Graph structure recording who evaluated whom, in what role, and when | Shape of the role hierarchy — flat (single evaluator role over Subjects) or multi-role (e.g., Manager → Trainer → Player → Subject) |
+| Per-role score propagation from designated origin identities | The initial team's owners — the team's first Managers, and the origin of manager energy |
+| Attestation and signature format | Evaluation criteria — what a valid evaluation means at each role |
+| Sybil resistance (inherited from Layer 0) | Domain-specific parameter values within protocol bounds |
+| Score computation (per-role propagation, decay, manager energy) | Optional per-role level definitions set by each team |
 
 The evaluation hierarchy is not a protocol-level concept — it is fully
-configurable per domain. Some domains retain a multi-tier structure resembling
-Aura's current Manager/Trainer/Player model; others use a flat, single-tier
-structure. The protocol imposes no fixed shape; it only guarantees that whatever
-shape is chosen, the resulting scores are computed consistently and resist sybil
-attack.
+configurable per domain. Some domains retain the multi-role structure Aura
+uses for the uniqueness domain (Manager → Trainer → Player → Subject);
+others use a flat hierarchy with a single evaluator role over Subjects. The
+protocol imposes no fixed shape; it only guarantees that whatever shape is
+chosen, scores are computed consistently per role and resist sybil attack.
 
-### 3.2 Two Orthogonal Axes: Authorization and Computation
+### 3.2 Three Concepts: Roles, Scores, and Levels
 
-The `role_schema` and the score are two distinct mechanisms that are easy to
-conflate, and keeping them separate is what allows a single scoring engine
-implementation to serve every domain shape:
+Three related concepts are easy to conflate, and keeping them separate is
+what allows a single scoring engine to serve every domain shape:
 
-- **Authorization** (`role_schema`) answers: *who is permitted to submit an
-  attestation that the engine will count?* — e.g., "Trainers may evaluate
-  Players," or, in a flat domain, "any participant at or above the eligibility
-  threshold may evaluate any other participant."
-- **Computation** (score) answers: *given the attestations that were permitted,
-  what is this participant's trust value?* — always a single continuous number in
-  [0, 1], regardless of how the domain's roles are structured.
+- **Role** answers: *who is permitted to submit an evaluation that the
+  engine will count, and against whom?* Roles are **opt-in**: a participant
+  chooses to become a Player, and can later opt into Trainer or Manager.
+  Once opted in, they are themselves evaluated by participants in the role
+  directly above them under the domain's role hierarchy (Section 4.2). In a
+  flat domain, there is a single evaluator role, and any participant at or
+  above the eligibility threshold in that role may evaluate any Subject.
+- **Score** answers: *given the evaluations that were permitted, what is
+  this participant's trust value in this (team, role)?* — always a single
+  continuous number in [0, 1], computed by the protocol per (identity,
+  domain, team, role).
+- **Level** is optional. Where a team chooses to define levels for a role,
+  a level is a named label attached to a participant based on their score
+  in that (team, role) plus any additional team-specified requirements
+  (e.g., a minimum confidence on incoming evaluations, or a requirement
+  that evaluations come from participants at a specified level).
 
-Tiers are not a separate scoring mechanism. A tier is a label attached to a band
-of the same underlying score — "Trainer" is simply the name given to the range of
-scores at or above the Trainer threshold. This is what lets the protocol offer one
-scoring engine for every domain, instead of a different computation model per
-role shape.
+A participant's role determines who they may evaluate; their score is the
+protocol's computed trust value in that role for a given team; and their
+level, where a team defines one, is a team-scoped label on that score.
+Nothing in the protocol implicitly promotes a Subject to a Player or a
+Player to a Trainer based on score alone — role transitions are opt-in
+acts, and the resulting score is computed from evaluations by the adjacent
+role above.
 
 ---
 
@@ -206,19 +224,26 @@ Attestation {
 
 ### 4.4 Scoring Engine
 
-For each (identity, domain, team) tuple, the engine computes a score through
-an iterative propagation process: trust originates at the team's owners and
-flows outward along active (non-revoked) evaluation edges. Each hop's
-contribution is weighted by the evaluator's own current score and attenuated by
-the domain's decay rate and propagation depth. Disputed attestations count at
+For each (identity, domain, team, role) tuple in which the identity has
+opted into an evaluator role, the engine computes a score through an
+iterative per-role propagation process: trust originates at the team's
+owners (its first Managers) and flows along active (non-revoked)
+evaluations from participants in the adjacent role above under the domain's
+role hierarchy (Section 4.2). Each hop's contribution is weighted by the
+evaluator's own current score in the evaluating role and attenuated by the
+domain's decay rate and propagation depth. Disputed attestations count at
 `dispute_weight` until resolved; revoked attestations are excluded entirely.
 
-**Tier assignment is automatic and derived, not manually set.** A participant's
-tier is always the highest tier whose `verification_thresholds` value their
-current score has crossed. Domain owners do not manually promote participants
-between tiers through the normal path — this keeps tier assignment as a pure
-function of score rather than a second, parallel source of truth. (A narrow
-manual-override path is worth keeping for edge cases — see Section 5.)
+**Level assignment is team-scoped and derived, not manually set.** Where a
+team defines levels for a role (Section 4.6), a participant's level in that
+(team, role) is the highest level whose team-defined requirements — a
+minimum score plus any additional requirements the team specifies — the
+participant currently satisfies. Where a team does not define levels for a
+role, participants in that role have a score only; there is no implicit
+level. In neither case does the protocol implicitly change a participant's
+**role**: taking on a role is an opt-in act (Section 3.2), and level
+labelling operates within an already-chosen role. (A narrow, auditable
+manual path for expanding a team's owner set is preserved — see Section 5.)
 
 **Computational approach.** Recomputing the full propagation graph on every new
 attestation does not scale once a domain has more than a small number of
@@ -231,30 +256,33 @@ participants. The engine should:
   willing to absorb the added computational cost.
 
 **Multi-team scoring.** In a domain with multiple teams (Section 4.6), the
-propagation process described above runs independently for each team, using
-that team's own owners and (possibly overridden) scoring parameters, producing
-a per-team score for the participant. In single-team domains, this distinction
-collapses.
+per-role propagation process runs independently for each team, using that
+team's own owners and (possibly overridden) scoring parameters, producing a
+per-(team, role) score for the participant. In single-team domains, this
+collapses to one score per role.
 
-**Manager energy — a distinct calculation for the top tier.** When a domain's
-role schema includes a top evaluation tier (historically called "Manager"),
-members of that tier are scored not by the normal propagation path above but
-by a bounded, redistributive calculation referred to as *manager energy*:
+**Manager energy — a distinct calculation for the Manager role.** The
+Manager role (or, in a domain whose top role has a different name, the top
+role in the domain's role hierarchy) is scored not by the normal
+propagation path above but by a bounded, redistributive calculation
+referred to as *manager energy*, derived from the SybilRank family of
+algorithms:
 
 - **Seeded exclusively at team owners.** The team's owners are the sole source
-  of manager energy for their team, so a team's top tier is bootstrapped
-  without requiring prior attestations to it.
+  of manager energy for their team, so the Manager role is bootstrapped
+  without requiring prior evaluations to it.
 - **Bounded iterations.** A small, team-configured number of weighted-
   SybilRank-style iterations (typically 2–4 depending on team size), so cost
   stays predictable as teams grow.
-- **Redistributive rather than additive.** A positive top-tier evaluation
+- **Redistributive rather than additive.** A positive Manager evaluation
   redirects a share of the evaluator's outbound energy; issuing an additional
   positive evaluation reduces the energy flowing to the evaluator's already-
   vouched-for peers. This is a deliberate departure from Trainer/Player-style
   scoring, where one evaluation does not diminish others.
 
-The remaining tiers (Trainer, Player, etc., where present) continue to score
-by the normal propagation path.
+Participants in non-Manager evaluator roles (Trainer, Player, and any
+additional roles a domain defines) continue to score via the normal
+per-role propagation path above.
 
 ### 4.5 Integration API
 
@@ -311,13 +339,14 @@ parameters, and verification thresholds.
 
 Two consequences follow:
 
-- **Team-local scores and tiers are independent.** A participant may hold
-  different scores — and therefore different tier assignments — in different
-  teams within the same domain, without conflict. The scoring engine (Section
-  4.4) runs once per (identity, domain, team) tuple, not once per (identity,
-  domain). Team owners define team-specific thresholds and verification
-  requirements, so what qualifies as e.g. a "Trainer" in one team is not
-  necessarily the same in another.
+- **Team-local scores and levels are independent.** A participant who has
+  opted into an evaluator role may hold different scores — and therefore
+  different level labels, where teams define them — in different teams
+  within the same domain, without conflict. The scoring engine (Section
+  4.4) runs once per (identity, domain, team, role) tuple. Team owners
+  define team-specific level requirements, so what qualifies as a "senior"
+  Trainer in one team is not necessarily the same in another; the Trainer
+  role itself is a domain-level concept a participant opts into once.
 - **App-facing outputs are aggregates.** Integrating applications typically
   consume a single aggregate score per (identity, domain), combining the
   participant's team-local scores across the teams operating the domain.
@@ -340,51 +369,80 @@ and the resilience properties described in Section 7.
 
 ## 5. Domain Bootstrapping
 
-A domain is empty of meaning at creation — only the initial team's owners hold
-a nonzero score. Growth from there follows a fixed sequence:
+A domain is empty of meaning at creation — only the initial team's owners
+hold a nonzero score, as its first Managers (Section 4.4). Growth from
+there follows the role hierarchy in a fixed sequence:
 
-1. Team owners evaluate an initial cohort of participants directly.
-2. Newly-evaluated participants receive a score computed from their proximity to
-   the team's owners and the strength of the evaluations they received.
-3. A participant becomes eligible to submit attestations that count toward the
-   domain's computation once their own score crosses
-   `evaluator_eligibility_threshold` (flat domains), or the threshold for a tier
-   permitted to evaluate under the domain's `role_schema` (tiered domains).
-4. Tier assignment then proceeds automatically as described in Section 4.4.
+1. The initial team's owners are the team's first Managers. They evaluate
+   one another, bootstrapping manager energy under the calculation in
+   Section 4.4.
+2. Existing Managers opt in additional participants as Trainers by
+   evaluating them. A Trainer's score comes from the Manager evaluations
+   they receive.
+3. Trainers, once their score in that role crosses the domain's
+   `evaluator_eligibility_threshold`, may evaluate Players. A Player's
+   score comes from the Trainer evaluations they receive.
+4. Players, once eligible in their role, evaluate Subjects. A Subject's
+   score in the domain comes from the Player evaluations they receive.
+5. Where a team defines levels for a role (Section 4.6), level labels
+   attach to participants automatically based on their score in that
+   (team, role) plus any additional team-specified requirements — but the
+   role itself is always an opt-in act, not a promotion inferred from
+   score alone.
 
-**Manual override path.** Real domains will occasionally need to inject trust
-outside the normal evaluation path — e.g., a team onboarding a known-credible
-expert on day one, before that person has accumulated any attestations. Rather
-than treating this as a gap, it's worth exposing narrowly: existing team owners
-can add another identity as a team owner post-launch (per the 2/3 majority rule
-in Section 2), but cannot directly set an arbitrary score for a non-owner
-participant. This keeps the one privileged action (expanding the team's owner
-set) auditable and distinct from the normal, attestation-driven scoring path.
+For a flat domain, this sequence collapses to a single evaluator role over
+Subjects: team owners evaluate the initial evaluator cohort directly, and
+newly-evaluated evaluators may evaluate Subjects once their score in the
+evaluator role crosses `evaluator_eligibility_threshold`.
+
+**Opting into a role.** Becoming a Player is open to any Layer 0 identity;
+a Player's score simply reflects how the domain's Trainers have evaluated
+them. Opting into Trainer or Manager is likewise open — a participant
+declares they are taking on the role — but their score in that role is
+determined by evaluations from the role above (Managers for Trainers;
+other Managers for Managers). Until an above-role participant evaluates
+them, their score in the new role is zero and their attestations in that
+role are provisional (see below).
+
+**Manual override path.** Real domains will occasionally need to inject
+trust outside the normal evaluation path — e.g., a team onboarding a
+known-credible expert on day one, before that person has accumulated any
+attestations. Rather than treating this as a gap, it's worth exposing
+narrowly: existing team owners can add another identity as a team owner
+post-launch (per the 2/3 majority rule in Section 2), which makes that
+identity a first-class Manager for the team. Team owners cannot directly
+set an arbitrary score for a non-owner participant, and cannot force a
+participant into a role they have not opted into. This keeps the one
+privileged action (expanding the team's owner set) auditable and distinct
+from the normal, opt-in, attestation-driven paths.
 
 **Starting from existing settings.** A new domain does not need to be authored
 from scratch, and neither does a new team on an existing domain. Two copying
 paths are first-class:
 
-- **Copy a domain's role schema and defaults.** When creating a new domain, its
-  author may seed the new domain by copying an existing domain's role schema,
-  evaluation-criteria description, and scoring-parameter defaults. The copy is
-  applied at create time; the new domain evolves independently thereafter.
+- **Copy a domain's role hierarchy and defaults.** When creating a new
+  domain, its author may seed the new domain by copying an existing
+  domain's role hierarchy, evaluation-criteria descriptions, and
+  scoring-parameter defaults. The copy is applied at create time; the new
+  domain evolves independently thereafter.
 - **Copy a team's settings.** When creating a domain, or registering an
-  additional team on an existing domain, the author may copy an existing team's
-  settings — team-owner set, scoring parameters, evaluation criteria,
-  verification thresholds — as starting defaults. This gives a new team a
-  known-working configuration to iterate from rather than starting from
-  protocol defaults.
+  additional team on an existing domain, the author may copy an existing
+  team's settings — team-owner set, scoring parameters, evaluation
+  criteria, per-role level definitions — as starting defaults. This gives
+  a new team a known-working configuration to iterate from rather than
+  starting from protocol defaults.
 
 Both copies are point-in-time snapshots, not live inheritance. Later changes to
 the source domain or team do not flow back into a copy.
 
-**Provisional participation.** Anyone may begin submitting attestations in a
-domain before any team's owners have evaluated them. Provisional
-attestations are recorded but do not contribute to any team's scoring; they
-become eligible to count only once the submitter crosses the relevant team's
-`evaluator_eligibility_threshold`. This lets participation begin naturally in
-advance of formal admission to a team, without inflating scores in the interim.
+**Provisional participation.** A participant who has opted into an
+evaluator role may begin submitting attestations in that role before any
+above-role participant has evaluated them. Provisional attestations are
+recorded but do not contribute to any team's scoring; they become eligible
+to count only once the submitter's score in that role crosses
+`evaluator_eligibility_threshold`. This lets participation begin naturally
+in advance of formal admission by an above-role participant, without
+inflating scores in the interim.
 
 ---
 
@@ -542,9 +600,13 @@ activity.
   within those bounds. This prevents a misconfigured domain from producing
   degenerate or trivially-gameable scores while still leaving real
   configuration flexibility to domain owners.
-- **Tier assignment is automatic**, derived purely from score against
-  `verification_thresholds` (Section 4.4), with a narrow, auditable manual path
-  limited to team-owner expansion (Section 5) — not arbitrary score-setting.
+- **Roles are opt-in; levels are team-scoped and optional.** A participant
+  chooses to become a Player, Trainer, or Manager, and their score in that
+  role is computed from evaluations by the role above (Sections 3.2, 4.4).
+  Where a team defines levels for a role, a level label is derived from the
+  participant's score plus any additional team-specified requirements. The
+  one privileged manual action is expanding a team's owner set (Section 5)
+  — not arbitrarily setting a score, level, or role.
 - **Score computation is incremental and batched by default**, with real-time
   recomputation as an opt-in, to keep cost bounded as domains scale (Section
   4.4).
@@ -587,11 +649,12 @@ activity.
 - **Phase 2 — Reference implementation.** Build the Domain Registry service
   (including team registration), the Attestation API (including revocation and
   dispute handling), the incremental scoring engine (including the manager-
-  energy calculation for multi-tier domains), and a minimal integration SDK
-  covering identity linking, evaluation submission, and score querying.
+  energy calculation for domains whose role hierarchy has a top role), and
+  a minimal integration SDK covering identity linking, evaluation
+  submission, and score querying.
 - **Phase 3 — Pilot domains.** Onboard a small number of pilot applications
   spanning different domain shapes — at least one flat-hierarchy domain, one
-  multi-tier domain, and one multi-team domain — to validate the configuration
+  multi-role domain, and one multi-team domain — to validate the configuration
   model, bootstrapping behavior, aggregation behavior, and abuse-resistance
   mechanisms under real usage before wider rollout.
 - **Phase 4 — General availability.** Open self-serve domain registration to
