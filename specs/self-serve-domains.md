@@ -164,18 +164,24 @@ with no default interaction between domains (see Section 7).
 
 A domain has one or more **teams** operating it (see Section 4.6). A team is an
 operational configuration of the domain — its team owners, scoring parameters,
-and verification thresholds — not a separate domain. The domain-level
-`scoring_parameters` and `verification_thresholds` below define the defaults a
-team inherits when it is registered on the domain; the initial team's owners
-are supplied at domain registration (see Section 4.5) and every team carries
-its own team-scoped values thereafter.
+and (optionally) per-role level definitions — not a separate domain. The
+domain-level `scoring_parameters` below define the defaults a team inherits
+when it is registered on the domain; the initial team's owners are supplied at
+domain registration (see Section 4.5) and every team carries its own
+team-scoped values thereafter. Level definitions are strictly team-scoped
+(Section 4.6): the domain does not carry a level ladder of its own.
 
 ```
 Domain {
   domain_id:              string, unique
   name:                   string
   description:            string
-  role_schema:            RoleSchema | "flat"
+  roles:                  [string]   // ordered top-down role hierarchy. roles[0] is the
+                                     // top role and is scored by manager energy (Section 4.4);
+                                     // each subsequent role is evaluated by the role above it,
+                                     // and the last role evaluates Subjects. A flat domain is a
+                                     // single-role list (one evaluator role over Subjects).
+                                     // Role names are chosen by the domain author.
   scoring_parameters: {
     decay_rate:                     float   // bounded [0, 1], protocol-enforced
     propagation_depth:              int     // bounded [1, 6], protocol-enforced
@@ -183,26 +189,37 @@ Domain {
     evaluator_eligibility_threshold: float  // bounded [0, 1] — min score to submit attestations
     dispute_weight:                 float   // bounded [0, 1] — weight of a disputed attestation pending resolution
   }
-  verification_thresholds: { tier_name: float }
   evaluation_criteria:    string   // domain-defined description of what a valid evaluation means
   visibility:             "public" | "domain-private" | "participant-controlled"
   created_at, updated_at, config_version
 }
 
-RoleSchema {
-  tiers: [
-    { tier_name: string, evaluates: tier_name | "subjects" }
-  ]
-}
-
 Team {
   team_id:                    string, unique within a domain
   domain_id:                  string
-  team_owners:                [identity_id]         // owners who bootstrap and administer this team
+  team_owners:                [identity_id]         // owners who bootstrap and administer this team;
+                                                    // become the team's first participants in Domain.roles[0]
   scoring_parameters:         ScoringParameters     // may override domain defaults within protocol bounds
-  verification_thresholds:    { tier_name: float }
-  manager_energy_iterations:  int                   // small bounded integer, applies only when role_schema has a top tier
+  level_definitions:          LevelDefinitions?     // optional; see below
+  manager_energy_iterations:  int                   // small bounded integer, applies to Domain.roles[0]
   created_at, updated_at, config_version
+}
+
+LevelDefinitions {
+  // Keys are role names drawn from Domain.roles, plus the implicit "Subject"
+  // role. Each list is an ordered ladder of levels; a participant's level in
+  // that (team, role) is the highest ladder entry whose requirements they
+  // currently satisfy (Section 4.4). A team may define levels for some roles
+  // and not others; roles without a ladder have a score but no level label.
+  [role_name: string]: [
+    {
+      level_name:            string
+      min_score:             float   // bounded [0, 1]
+      min_evaluator_level?:  string  // level in the evaluating role a counted evaluation must come from
+      min_confidence?:       float   // aggregate confidence of incoming evaluations, bounded [0, 1]
+      // additional team-defined requirements permitted
+    }
+  ]
 }
 ```
 
@@ -288,20 +305,24 @@ per-role propagation path above.
 
 ```
 POST /domains
-  { name, role_schema, initial_team_owners, scoring_parameters,
-    verification_thresholds, evaluation_criteria, visibility }
+  { name, roles, initial_team_owners, scoring_parameters,
+    initial_team_level_definitions?, evaluation_criteria, visibility }
   → { domain_id, initial_team_id }
-  // `initial_team_owners` seeds the domain's initial team; additional teams
-  // are registered via POST /domains/{domain_id}/teams below.
+  // `roles` is the domain's role hierarchy, top-down; a flat domain passes a
+  // single-role list. `initial_team_owners` seeds the domain's initial team
+  // and its first participants in `roles[0]` (the origin of manager energy
+  // for that team). Level definitions, when supplied, apply to the initial
+  // team only — subsequent teams set their own. Additional teams are
+  // registered via POST /domains/{domain_id}/teams below.
 
 GET /domains/{domain_id}
   → current domain configuration
 
 PATCH /domains/{domain_id}
-  { scoring_parameters?, verification_thresholds?, evaluation_criteria?, visibility? }
+  { scoring_parameters?, evaluation_criteria?, visibility? }
   → updated configuration, config_version incremented
   // Changes to scoring_parameters trigger a full domain recomputation.
-  // Changes to verification_thresholds only re-evaluate tier labels, no recomputation needed.
+  // `roles` is immutable after creation; changing the role hierarchy requires a new domain.
 
 POST /domains/{domain_id}/attestations
   { evaluator_id, subject_id, score, criteria_reference, signature }
@@ -316,14 +337,30 @@ POST /domains/{domain_id}/attestations/{attestation_id}/dispute
   → marks attestation disputed; counted at dispute_weight until resolved
 
 GET /domains/{domain_id}/participants/{identity_id}/score
-  → { identity_id, domain_id, score, tier, per_team: [ { team_id, score, tier } ], last_updated }
-  // `score` and `tier` are the domain's default aggregation across teams (Section 4.6);
-  // consumers can also compute their own aggregate from `per_team`.
+  → {
+      identity_id,
+      domain_id,
+      per_role: [
+        {
+          role:      string,           // a name from Domain.roles, or "Subject"
+          score:     float,            // domain's default aggregation across teams (Section 4.6)
+          level:     string | null,    // team-defined label; null when no team defines a ladder for this role
+          per_team: [
+            { team_id, score, level: string | null }
+          ]
+        }
+      ],
+      last_updated
+    }
+  // Consumers can inspect `per_team` to apply their own team-selection or
+  // weighting policy per Section 4.6, or read a single per-role aggregate
+  // directly.
 
 POST /domains/{domain_id}/teams
-  { team_owners, scoring_parameters?, verification_thresholds?, manager_energy_iterations? }
+  { team_owners, scoring_parameters?, level_definitions?, manager_energy_iterations? }
   → { team_id }
-  // Omitted fields fall back to the domain's defaults from Section 4.2.
+  // Omitted fields fall back to the domain's defaults from Section 4.2;
+  // `level_definitions` has no domain-level default and is empty when omitted.
 
 GET /domains/{domain_id}/teams
   → [ Team, ... ]   // per Team schema in Section 4.2
@@ -333,9 +370,9 @@ GET /domains/{domain_id}/teams
 
 A domain may be operated by one or more **teams**. A team is an operational
 configuration of a domain (Section 4.2), not a separate domain. Every team
-operating a given domain works from the same domain-level role schema and
+operating a given domain works from the same domain-level role hierarchy and
 evaluation-criteria description, but with its own team owners, scoring
-parameters, and verification thresholds.
+parameters, and (optionally) per-role level definitions.
 
 Two consequences follow:
 
@@ -448,9 +485,10 @@ inflating scores in the interim.
 
 ## 6. Integration Flow
 
-1. **Domain registration.** An application registers a domain: name, role schema
-   (or "flat"), and the initial team's settings — team owners, scoring parameters,
-   verification thresholds. Additional teams may be registered on the domain
+1. **Domain registration.** An application registers a domain: name, role
+   hierarchy (a single-role list for a flat domain), and the initial team's
+   settings — team owners, scoring parameters, and (optionally) per-role
+   level definitions. Additional teams may be registered on the domain
    later (Section 4.5).
 2. **Identity linking.** A participant links their Aura identity to their
    application account. An identity can link to a given domain at most once.
@@ -474,10 +512,10 @@ inflating scores in the interim.
 ### 7.1 Domain Isolation
 
 Each domain is independently owned and fully configured by the application that
-registers it. A domain's role schema, scoring parameters, evaluation criteria,
-and verification thresholds — along with the initial team's owners — are set
-exclusively by that domain's owner, and domains do not affect one another by
-default: they are isolated. A
+registers it. A domain's role hierarchy, scoring parameters, and evaluation
+criteria — along with the initial team's owners and (optionally) their level
+definitions — are set exclusively by that domain's owner, and domains do not
+affect one another by default: they are isolated. A
 single identity can hold a high score in one domain and no score at all in
 another, simultaneously, with no conflict.
 
@@ -668,7 +706,7 @@ activity.
 ```
 {
   "name": "local-food-reviews",
-  "role_schema": "flat",
+  "roles": ["Reviewer"],
   "initial_team_owners": ["<initial trusted local reviewers>"],
   "scoring_parameters": {
     "decay_rate": 0.15,
@@ -677,22 +715,21 @@ activity.
     "evaluator_eligibility_threshold": 0.4,
     "dispute_weight": 0.5
   },
-  "verification_thresholds": { "trusted_reviewer": 0.6 },
+  "initial_team_level_definitions": {
+    "Reviewer": [
+      { "level_name": "trusted_reviewer", "min_score": 0.6 }
+    ]
+  },
   "evaluation_criteria": "Evaluator has personally interacted with the subject's reviews and can vouch for their accuracy.",
   "visibility": "public"
 }
 ```
 
-**B — Freelance Marketplace Trust (two-tier)**
+**B — Freelance Marketplace Trust (two-role)**
 ```
 {
   "name": "freelance-marketplace-trust",
-  "role_schema": {
-    "tiers": [
-      { "tier_name": "verified_client", "evaluates": "subjects" },
-      { "tier_name": "senior_freelancer", "evaluates": "verified_client" }
-    ]
-  },
+  "roles": ["SeniorFreelancer", "VerifiedClient"],
   "initial_team_owners": ["<platform-vetted senior freelancers>"],
   "scoring_parameters": {
     "decay_rate": 0.05,
@@ -701,22 +738,21 @@ activity.
     "evaluator_eligibility_threshold": 0.5,
     "dispute_weight": 0.4
   },
-  "verification_thresholds": { "verified_client": 0.5 },
+  "initial_team_level_definitions": {
+    "VerifiedClient": [
+      { "level_name": "verified_client", "min_score": 0.5 }
+    ]
+  },
   "evaluation_criteria": "Evaluator has completed at least one contract with the subject.",
   "visibility": "domain-private"
 }
 ```
 
-**C — DAO Contributor Reputation (multi-tier)**
+**C — DAO Contributor Reputation (multi-role)**
 ```
 {
   "name": "dao-contributor-reputation",
-  "role_schema": {
-    "tiers": [
-      { "tier_name": "core_maintainer", "evaluates": "core_maintainer" },
-      { "tier_name": "core_maintainer", "evaluates": "contributor" }
-    ]
-  },
+  "roles": ["CoreMaintainer", "Contributor"],
   "initial_team_owners": ["<founding core maintainers>"],
   "scoring_parameters": {
     "decay_rate": 0.02,
@@ -725,7 +761,14 @@ activity.
     "evaluator_eligibility_threshold": 0.75,
     "dispute_weight": 0.5
   },
-  "verification_thresholds": { "contributor": 0.4, "core_maintainer": 0.75 },
+  "initial_team_level_definitions": {
+    "CoreMaintainer": [
+      { "level_name": "core_maintainer", "min_score": 0.75 }
+    ],
+    "Contributor": [
+      { "level_name": "contributor", "min_score": 0.4 }
+    ]
+  },
   "evaluation_criteria": "Evaluator has reviewed and merged at least one contribution from the subject.",
   "visibility": "public"
 }
