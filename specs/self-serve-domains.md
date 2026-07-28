@@ -6,12 +6,13 @@
 ## 1. Overview
 
 Aura today ships one built-in domain of trust — uniqueness — computed by a fixed
-evaluation hierarchy (Manager, Trainer, Player/Subject) and operated by teams
-whose configuration (seed evaluators, thresholds, evaluation criteria, cadence)
-is set centrally. Third-party applications consume the resulting score as a
-sybil-resistance guarantee. Everything the protocol currently knows about "what
-trust means" is baked into that one domain and into the team settings that run
-it.
+evaluation hierarchy (Manager, Trainer, Player/Subject) and operated by one or
+more teams whose configuration (seed evaluators, thresholds, evaluation
+criteria, cadence) is set centrally. Each team computes scores for its
+participants independently; third-party applications typically consume an
+aggregate across teams as a sybil-resistance guarantee. Everything the protocol
+currently knows about "what trust means" is baked into that one domain and into
+the team settings that run it.
 
 This document specifies the extension of Aura from a system with one built-in
 domain into a self-serve platform on which anyone can **create, publish, and
@@ -68,6 +69,12 @@ This produces two layers:
 | **Eligibility Threshold** | The minimum score a participant must hold before their attestations are counted by the scoring engine. |
 | **Revocation** | Removal of a previously-submitted attestation from score computation. |
 | **Dispute** | A flag placed on an attestation pending review, during which it may count at reduced weight. |
+| **Team** | An operational configuration of a domain: a seed group of team owners, scoring parameters, evaluation-criteria interpretation, and verification thresholds. A domain may be operated by one or more teams; each team computes scores independently (see Section 4.6). |
+| **Team Settings** | The team-scoped configuration — seed group, scoring parameters, evaluation criteria, verification thresholds — that a new team or new domain may copy as a starting point, distinct from the domain-level role schema shared across all teams operating that domain. |
+| **Team Owner** | An identity that bootstraps and administers a team; team owners collectively form the initial members of the top evaluation tier of their team and expand the team by evaluating other members. |
+| **Manager Energy** | A distinct calculation used for the top evaluation tier when a domain uses a multi-tier role schema. Energy originates at team owners, iterates a small bounded number of times, and is redistributed — not added — by positive top-tier evaluations (see Section 4.4). |
+| **Aggregate Score** | An app-facing score for an identity in a domain, derived by combining that identity's team-local scores across the teams operating the domain. Aggregation is a consumer-side or league-side concern; the protocol computes per-team scores that aggregation builds on. |
+| **Provisional Participation** | A pre-eligibility mode in which a participant may submit attestations that are recorded but do not yet contribute to any team's scoring, used to bootstrap involvement before a team's seed group evaluates them. |
 
 ---
 
@@ -136,6 +143,13 @@ with no default interaction between domains (see Section 7).
 
 ### 4.2 Domain Registry
 
+A domain has one or more **teams** operating it (see Section 4.6). A team is an
+operational configuration of the domain — its seed group (the team owners),
+scoring parameters, and verification thresholds — not a separate domain. The
+domain-level `seed_group`, `scoring_parameters`, and `verification_thresholds`
+below define the settings of the domain's initial team; additional teams
+registered on the domain carry their own team-scoped equivalents.
+
 ```
 Domain {
   domain_id:              string, unique
@@ -160,6 +174,16 @@ RoleSchema {
   tiers: [
     { tier_name: string, evaluates: tier_name | "subjects" }
   ]
+}
+
+Team {
+  team_id:                    string, unique within a domain
+  domain_id:                  string
+  team_owners:                [identity_id]         // seed group for this team
+  scoring_parameters:         ScoringParameters     // may override domain defaults within protocol bounds
+  verification_thresholds:    { tier_name: float }
+  manager_energy_iterations:  int                   // small bounded integer, applies only when role_schema has a top tier
+  created_at, updated_at, config_version
 }
 ```
 
@@ -205,6 +229,32 @@ participants. The engine should:
   default, with real-time recomputation available as an opt-in for domains
   willing to absorb the added computational cost.
 
+**Multi-team scoring.** In a domain with multiple teams (Section 4.6), the
+propagation process described above runs independently for each team, using
+that team's own team-owner seed group and (possibly overridden) scoring
+parameters, producing a per-team score for the participant. In single-team
+domains, this distinction collapses.
+
+**Manager energy — a distinct calculation for the top tier.** When a domain's
+role schema includes a top evaluation tier (historically called "Manager"),
+members of that tier are scored not by the normal propagation path above but
+by a bounded, redistributive calculation referred to as *manager energy*:
+
+- **Seeded exclusively at team owners.** The team's owners are the sole source
+  of manager energy for their team, so a team's top tier is bootstrapped
+  without requiring prior attestations to it.
+- **Bounded iterations.** A small, team-configured number of weighted-
+  SybilRank-style iterations (typically 2–4 depending on team size), so cost
+  stays predictable as teams grow.
+- **Redistributive rather than additive.** A positive top-tier evaluation
+  redirects a share of the evaluator's outbound energy; issuing an additional
+  positive evaluation reduces the energy flowing to the evaluator's already-
+  vouched-for peers. This is a deliberate departure from Trainer/Player-style
+  scoring, where one evaluation does not diminish others.
+
+The remaining tiers (Trainer, Player, etc., where present) continue to score
+by the normal propagation path.
+
 ### 4.5 Integration API
 
 ```
@@ -235,8 +285,53 @@ POST /domains/{domain_id}/attestations/{attestation_id}/dispute
   → marks attestation disputed; counted at dispute_weight until resolved
 
 GET /domains/{domain_id}/participants/{identity_id}/score
-  → { identity_id, domain_id, score, tier, last_updated }
+  → { identity_id, domain_id, score, tier, per_team: [ { team_id, score, tier } ], last_updated }
+  // `score` and `tier` are the domain's default aggregation across teams (Section 4.6);
+  // consumers can also compute their own aggregate from `per_team`.
+
+POST /domains/{domain_id}/teams
+  { team_owners, scoring_parameters?, verification_thresholds?, manager_energy_iterations? }
+  → { team_id }
+  // Omitted fields fall back to the domain's defaults from Section 4.2.
+
+GET /domains/{domain_id}/teams
+  → [ Team, ... ]   // per Team schema in Section 4.2
 ```
+
+### 4.6 Teams and Aggregate Outputs
+
+A domain may be operated by one or more **teams**. A team is an operational
+configuration of a domain (Section 4.2), not a separate domain. Every team
+operating a given domain works from the same domain-level role schema and
+evaluation-criteria description, but with its own team-scoped seed group,
+scoring parameters, and verification thresholds.
+
+Two consequences follow:
+
+- **Team-local scores and tiers are independent.** A participant may hold
+  different scores — and therefore different tier assignments — in different
+  teams within the same domain, without conflict. The scoring engine (Section
+  4.4) runs once per (identity, domain, team) tuple, not once per (identity,
+  domain). Team owners define team-specific thresholds and verification
+  requirements, so what qualifies as e.g. a "Trainer" in one team is not
+  necessarily the same in another.
+- **App-facing outputs are aggregates.** Integrating applications typically
+  consume a single aggregate score per (identity, domain), combining the
+  participant's team-local scores across the teams operating the domain.
+  Aggregation — which teams to include, and how to weight them — is
+  deliberately a consumer-side or league-side concern rather than a protocol
+  guarantee, so that consumers retain the ability to include, exclude, or
+  reweight a specific team without the protocol having to arbitrate that
+  decision.
+
+Attestation submission carries team scope: an evaluator may evaluate the same
+subject only once per role, but that evaluation can be applied to any of the
+teams the evaluator belongs to (extending the base attestation schema in
+Section 4.3, whose team-scoping fields are elided for readability).
+
+A single-team domain is the degenerate case: its team-local scores are its
+app-facing scores. The multi-team case is what motivates the aggregation layer
+and the resilience properties described in Section 7.
 
 ---
 
@@ -263,34 +358,66 @@ cannot directly set an arbitrary score for a non-seed participant. This keeps
 the one privileged action (expanding the seed group) auditable and distinct
 from the normal, attestation-driven scoring path.
 
+**Starting from existing settings.** A new domain does not need to be authored
+from scratch, and neither does a new team on an existing domain. Two copying
+paths are first-class:
+
+- **Copy a domain's role schema and defaults.** When creating a new domain, its
+  author may seed the new domain by copying an existing domain's role schema,
+  evaluation-criteria description, and scoring-parameter defaults. The copy is
+  applied at create time; the new domain evolves independently thereafter.
+- **Copy a team's settings.** When creating a domain, or registering an
+  additional team on an existing domain, the author may copy an existing team's
+  settings — seed group shape, scoring parameters, evaluation criteria,
+  verification thresholds — as starting defaults. This gives a new team a
+  known-working configuration to iterate from rather than starting from
+  protocol defaults.
+
+Both copies are point-in-time snapshots, not live inheritance. Later changes to
+the source domain or team do not flow back into a copy.
+
+**Provisional participation.** Anyone may begin submitting attestations in a
+domain before any team's seed group has evaluated them. Provisional
+attestations are recorded but do not contribute to any team's scoring; they
+become eligible to count only once the submitter crosses the relevant team's
+`evaluator_eligibility_threshold`. This lets participation begin naturally in
+advance of formal admission to a team, without inflating scores in the interim.
+
 ---
 
 ## 6. Integration Flow
 
 1. **Domain registration.** An application registers a domain: name, role schema
-   (or "flat"), seed group, scoring parameters, and verification thresholds.
+   (or "flat"), and the initial team's settings — seed group, scoring parameters,
+   verification thresholds. Additional teams may be registered on the domain
+   later (Section 4.5).
 2. **Identity linking.** A participant links their Aura identity to their
    application account. An identity can link to a given domain at most once.
-3. **Evaluation submission.** A trusted evaluator within the domain evaluates
-   another participant, producing a signed attestation scoped to that domain.
+3. **Evaluation submission.** A trusted evaluator submits a signed attestation
+   scoped to the domain; in multi-team domains, the attestation applies to
+   whichever teams the evaluator both belongs to and elects to include
+   (Section 4.6).
 4. **Score computation.** The scoring engine incrementally recomputes the
-   affected participants' domain scores.
-5. **Score query.** The application queries a participant's score to determine
-   what to unlock.
+   affected participants' team-local scores.
+5. **Score query.** The application queries a participant's aggregate score for
+   the domain (per Section 4.5), optionally inspecting the per-team breakdown
+   to apply its own team-selection or weighting policy.
 6. **Continuous update.** Scores are recomputed as further attestations,
    revocations, or dispute resolutions arrive, with updates delivered to the
    application via webhook or polling.
 
 ---
 
-## 7. Domain Ownership and Isolation
+## 7. Isolation, Resilience, Privacy, and Accountability
+
+### 7.1 Domain Isolation
 
 Each domain is independently owned and fully configured by the application that
-registers it. A domain's seed group, scoring parameters, evaluation criteria,
-and verification thresholds are set exclusively by that domain's owner, and
-domains do not affect one another by default: they are isolated. A single
-identity can hold a high score in one domain and no score at all in another,
-simultaneously, with no conflict.
+registers it. A domain's role schema, seed group, scoring parameters, evaluation
+criteria, and verification thresholds are set exclusively by that domain's
+owner, and domains do not affect one another by default: they are isolated. A
+single identity can hold a high score in one domain and no score at all in
+another, simultaneously, with no conflict.
 
 This has two direct consequences:
 
@@ -305,6 +432,53 @@ mechanism: identity, graph structure, attestation format, signature
 verification, and score propagation. A new domain owner configures the meaning
 of trust for their case on top of infrastructure that already exists, rather
 than designing a reputation system from scratch.
+
+### 7.2 Multi-Team Resilience
+
+Because a domain may be operated by more than one team (Section 4.6), the
+domain does not depend on any single team being healthy for its app-facing
+outputs to remain useful:
+
+- **Team-level compromise stays team-level.** If a team's seed group is
+  captured, or its evaluations become systematically biased or collusive,
+  applications and aggregators can exclude that team from their aggregate
+  without withdrawing from the domain. The other teams operating the domain
+  continue to compute team-local scores unaffected, so the domain as a whole
+  keeps functioning.
+- **Recovery is additive.** New teams can be registered on the domain and
+  bootstrapped by copying a healthy team's settings (Section 5), so the
+  response to a compromised team is to add or reweight teams rather than
+  requiring a protocol-level takeover of the affected one.
+- **Aggregation is the consumer's lever.** Because aggregation across teams is
+  a consumer-side or league-side decision (Section 4.6), the mechanism for
+  excluding a team already exists where the app-facing score is computed —
+  without the protocol having to formalize a removal path.
+
+### 7.3 Privacy
+
+The protocol inherits Layer 0's privacy posture: no information about a
+participant should be disclosed to a party that does not already know it.
+Because evaluations rely on evaluators who already know the participants they
+evaluate, the protocol does not create a new class of counterparties that must
+be handed personal data in order to verify a participant. Domain owners may
+still choose different visibility settings for their domain's attestations and
+scores (`public`, `domain-private`, `participant-controlled`; see Section 4.2),
+but no visibility setting overrides the Layer 0 rule for the underlying
+identity data.
+
+### 7.4 Accountability
+
+Evaluators have skin in the game. An evaluator's own score is affected by
+downstream outcomes on who they vouched for (Section 8), and attestations can
+be revoked or disputed after the fact. In practice this means that a
+consistently poor or captured evaluator sees their own score drop quickly to
+a point where their attestations stop influencing the domain's outputs —
+without requiring an out-of-band ban list or a protocol-level punishment
+mechanism.
+
+Accountability for how an app uses a domain's scores — including the choice of
+which teams to include in its aggregate and how to weight them — sits with the
+integrating application rather than the protocol; see Section 11.
 
 ---
 
@@ -370,6 +544,15 @@ activity.
 - **Score computation is incremental and batched by default**, with real-time
   recomputation as an opt-in, to keep cost bounded as domains scale (Section
   4.4).
+- **Multi-team aggregation is a consumer-side concern.** The protocol computes
+  team-local scores; combining them into an app-facing aggregate — and choosing
+  which teams to include or exclude — is left to consumers or leagues (Sections
+  4.6, 7.2), so applications retain a natural lever for handling compromised
+  teams without protocol-level arbitration.
+- **Privacy is inherited from Layer 0, not re-invented at the domain layer.**
+  Domain-level visibility settings tune how attestations and scores are
+  exposed but do not weaken the Layer 0 rule against sharing identity data
+  with parties that don't already know the participant (Section 7.3).
 
 ---
 
@@ -394,18 +577,19 @@ activity.
 
 ## 12. Implementation Roadmap
 
-- **Phase 1 — Protocol specification.** Finalize the Domain, Attestation, and
-  Score schemas; extend the existing identity layer to support domain-tagged
+- **Phase 1 — Protocol specification.** Finalize the Domain, Team, Attestation,
+  and Score schemas; extend the existing identity layer to support domain-tagged
   records without altering its current uniqueness guarantees.
-- **Phase 2 — Reference implementation.** Build the Domain Registry service,
-  the Attestation API (including revocation and dispute handling), the
-  incremental scoring engine, and a minimal integration SDK covering identity
-  linking, evaluation submission, and score querying.
+- **Phase 2 — Reference implementation.** Build the Domain Registry service
+  (including team registration), the Attestation API (including revocation and
+  dispute handling), the incremental scoring engine (including the manager-
+  energy calculation for multi-tier domains), and a minimal integration SDK
+  covering identity linking, evaluation submission, and score querying.
 - **Phase 3 — Pilot domains.** Onboard a small number of pilot applications
-  spanning different domain shapes — at least one flat-hierarchy domain and one
-  multi-tier domain — to validate the configuration model, bootstrapping
-  behavior, and abuse-resistance mechanisms under real usage before wider
-  rollout.
+  spanning different domain shapes — at least one flat-hierarchy domain, one
+  multi-tier domain, and one multi-team domain — to validate the configuration
+  model, bootstrapping behavior, aggregation behavior, and abuse-resistance
+  mechanisms under real usage before wider rollout.
 - **Phase 4 — General availability.** Open self-serve domain registration to
   any application, with the mechanisms from Phases 1–3 in place as defaults.
 
