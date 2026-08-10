@@ -9,7 +9,7 @@
 Aura's design currently lives in seven places that disagree with each other. This
 puts it in one place.
 
-Four markers appear throughout:
+Five markers appear throughout:
 
 > **▸ In the code.** Verified against the running implementation, with a line
 > reference.
@@ -19,6 +19,9 @@ Four markers appear throughout:
 > **▸ Proposed.** Our suggestion. No team decision yet.
 
 > **▸ Open.** Undecided.
+
+> **▸ Decided.** Was open; a human called it. The call carries their name and where
+> they made it.
 
 Previous attempts failed by writing intentions as descriptions. The markers are the
 fix.
@@ -107,8 +110,17 @@ should propagate harder than praise.
 > **▸ Not yet built.** The multiplier should be configurable. Four has felt roughly
 > right for years, but there will be domains where it isn't.
 
-> **▸ Not yet built.** Negatives should influence energy flows (Section 5). Today
-> energy moves only along positive evaluations.
+> **▸ Decided — energy flows only along positive evaluations, and that is correct.**
+> Adam, on PR #4. An earlier draft of this document had negatives influencing energy
+> flow as future work; the argument against it is decisive. A negative evaluation acts
+> by **withdrawing** flow, not by reversing it. When Alice evaluates Bob negatively,
+> Bob loses the energy Alice had been sending him and his ability to influence other
+> managers shrinks — the intended result. Energy that flowed *negatively* would hand
+> Bob more to spend, growing the influence of the manager the network just judged
+> badly; and if he could choose the sign he passes on, he would simply flip it.
+>
+> The 4× above belongs to score accumulation on the edges. It never touches energy.
+> **Two engines, and the boundary between them is deliberate** — see Section 5.
 
 ### An evaluation is a standing claim
 
@@ -187,9 +199,31 @@ tier and an evaluator in the player tier.
 
 The top tier evaluates itself. That's what Section 5 is about.
 
-> **▸ Open.** Whether tier count and tier names are the domain author's to choose,
-> and what a domain with a single evaluator tier looks like — see the flat-domain
-> question in Section 5.
+### Why three
+
+Three evaluator tiers is not a default that happened to stick. It is the partition
+that lets someone contribute while knowing only their own layer:
+
+1. **Players** need to know how to answer the questions asked about subjects.
+2. **Trainers** need to know who qualifies as a player on a team.
+3. **Managers** need to understand how energy flows.
+
+Nothing above the manager is left to learn, and collapsing any two tiers forces one
+participant to hold two of those jobs at once. That is what the tier system buys —
+an open system that keeps taking new participants, because the amount you must
+understand to be useful stays small.
+
+Trainers also carry a power the table above doesn't show: **an evaluation names the
+team or teams it counts for.** A trainer is therefore deciding which players land on
+which teams, and can hold new players on a starter team until they have built a
+record.
+
+> **▸ Decided — three evaluator tiers, fixed.** Adam, on PR #4 (the rationale above is
+> his, recorded here for the first time); Philip agrees. Tier count is not the domain
+> author's to choose. A domain may simplify what its participants *see* — a narrow use
+> case can present as flat — but the three tiers still run underneath. This retires
+> the flat-domain question in Section 5: there is no one-tier domain, only a one-tier
+> presentation.
 
 ### Anyone can participate immediately
 
@@ -254,8 +288,14 @@ manager score = Σ  confidence × evaluator.energy × (positive ? 1 : −4)
 > looked up from the settled `energy` collection.
 
 > **▸ Open.** How initial energy is allocated between owners. The even split is an
-> implementation default, not a decision. Also: the Levels doc says hops run "2 or 4
-> depending on the size of the team"; the code is fixed at 4. Which is intended?
+> implementation default, not a decision.
+
+> **▸ Decided — hops are log(N).** Adam, on PR #4: the SybilRank result, corroborated
+> by years of running it. Neither the code's fixed 4 nor the Levels doc's "2 or 4
+> depending on the size of the team" is the rule — both are that rule frozen at one
+> scale. `HOPS = 4` should become the computed value. *Still to pin down: the base,
+> and N over which population — every participant in the domain, or the managers the
+> iteration actually runs over.*
 
 ### Energy is conserved
 
@@ -270,15 +310,20 @@ The cost is systemic: the total pool shrinks every hop, so every manager's score
 shrinks against level thresholds that are fixed absolute numbers. Levels get harder
 to reach for reasons unrelated to anyone's behaviour.
 
-> **▸ Open.** The guardrail design — for Adam. Candidate shapes: don't route energy
-> to dead ends in the first place (redistributing proportionally, as though the edge
-> weren't there), or renormalize the pool each hop.
+> **▸ Decided — block the dead ends in the code.** Adam, on PR #4: "I agree we can
+> block routing energy to dead ends." Energy is not routed to a manager with no
+> outgoing edge; it redistributes as though that edge weren't there. Chosen over
+> renormalizing the pool each hop, and it settles a question that had previously been
+> treated as socially solved — nag the manager, or stop sending them energy. A result
+> we know we don't want should be made impossible rather than discouraged.
 
-> **▸ Open.** Flat domains. A domain with one evaluator tier over subjects has no
-> tier above to weight its evaluators — so where does their weight come from? If
-> they evaluate each other, that tier is self-referential and needs seeding and
-> energy, and "flat" quietly means "two tiers." Needs a team answer before anyone
-> specs domain shapes.
+> **▸ Open.** The mechanics: exactly how the redistribution is computed, and what
+> happens on the last hop, where by construction every node is a dead end.
+
+> **▸ Decided — there is no flat domain.** See Section 4: three evaluator tiers are
+> fixed, so a domain that looks flat is a presentation over the same stack rather than
+> a different shape. The question dissolves instead of being answered — there is no
+> lone evaluator tier needing a source of weight, because there is no lone tier.
 
 ### Accumulation below
 
@@ -373,9 +418,10 @@ score alone. Without the exemption a new team
 couldn't start — its founders can't satisfy requirements that need evaluators who
 don't exist yet.
 
-> **▸ Open.** Whether manager and trainer levels lacking evaluation requirements is
-> a design choice or an implementation artifact — the Levels doc says all roles have
-> them.
+> **▸ Decided — design choice.** Adam, on PR #4: every role is open to every
+> participant, and evaluations from others are what graduate someone out of
+> provisional. Manager and trainer levels carrying no evaluation requirements is the
+> open-participation rule working, not a gap in the implementation.
 
 > **▸ Open.** Current thresholds and requirements are starting points, not the
 > destination. Level definitions need to stay flexible enough to experiment with
@@ -413,7 +459,8 @@ than a quiet ruling here.
 - The Features page: players belong to any team whose energy reaches them, even
   unknowingly.
 
-> **▸ Proposed.** Players never choose or join — a trainer on a team evaluates you
+> **▸ Decided — the cap is outbound, at trainer and above.** Adam, on PR #4: "This is
+> exactly right." Players never choose or join — a trainer on a team evaluates you
 > and your evaluations start counting there. The choice and the cap sit at trainer
 > and above, on the **outbound** side: standing flows in uncapped from any number of
 > teams, and you pick a handful to pass down through. Teams you don't pick get
@@ -421,9 +468,10 @@ than a quiet ruling here.
 > something teams compete for, which pushes teams to send real resources downstream
 > and keeps them from converging on the same people.
 
-> **▸ Open.** Which version is right, whether the historical player cap had a reason
-> we've forgotten, and what the outbound number should be. Nobody has a derivation
-> for five.
+> **▸ Open — the number.** Adam recalls five from discussions with Philip, and accepts
+> the consequence: five teams per trainer, and a player with several trainers reaching
+> more than five that way. Five is the working convention; nobody has a derivation for
+> it, and the historical inbound player cap may have had a reason we have lost.
 
 ### Team owners
 
@@ -437,38 +485,74 @@ the team's levels. Creating a team costs a fee.
 
 ---
 
-## 8. The league
+## 8. The league, and the mix
 
-The league handles coordination and marketing above the teams. It offers
-one product — Aura answers a customer's questions — the way the NFL offers one
-product with many teams inside it.
+An application asking Aura a question needs one answer, not a table of team scores.
+Two separate things produce that answer, and an earlier draft of this document ran
+them together — describing a league that ingested team outputs, weighted them, and
+published a result. That is not the design.
 
-The league decides which teams to listen to and how much to weight them, and may
-publish more than one interpretation of the same data: a standard answer for
-questions many applications need, and a long tail for narrower ones.
+### The mix is a computation, not an institution
+
+Teams publish their own scores. The weights over those teams come from **crowd
+wisdom** — the people who ultimately rely on Aura's answers. A consumer takes the
+weights and the scores and combines them, and every consumer doing so arrives at the
+same result independently. Nothing sits in the middle ingesting anything, and there
+is no privileged copy of the answer.
+
+This is the same rule as everywhere else in Aura: the output is derived, so anyone
+holding the inputs can recompute it (Section 5). Choosing the mix is the one input
+the system collects from outside itself.
+
+> **▸ Decided.** Adam, on PR #4: "Crowd wisdom determines the weights of different
+> teams in a mix… Teams publish their own scores. Consumers take the crowd wisdom
+> weights and the team scores and combine them. Every consumer using these would
+> arrive at the same combined scores for evaluations independently." See also
+> *[Decentralizing BrightID with Collective
+> Intelligence](https://paragraph.com/@adamstallard/decentralizing-brightid-with-collective-intelligence)*.
+
+### The league is the organization, not the calculator
+
+Adam's position is that crowd wisdom supersedes the notion of a league. Philip's is
+that it supersedes the league's **arithmetic** and not the league itself: something
+still has to make this one cohesive platform rather than a protocol with participants
+scattered around it. Somebody convenes the teams, runs whatever crowd wisdom is
+collected through, markets one product, and answers for it when it is wrong. That is
+the league, and it survives the mix moving out of its hands.
 
 How the league governs itself is deliberately out of scope. Today it's a few people
 making decisions; later it may have many participants, or defer to a market —
 possibly a prediction-market layer where timestamped answers are graded as reality
-reveals itself and payouts follow the results. Nothing below the league changes when
-that changes.
+reveals itself and payouts follow the results.
 
-There is one league today, and network effects favor there staying one. The fork
-exists as an outlet, not a rival: if the league is ever corrupted, a new league is a
-new set of weights over an unchanged body of evaluations, and participants decide
-where to spend their time. That property requires the league to stay thin — teams
-and participants are independently addressable and never owned by the league, or
-forking stops being cheap.
+There is one league today and network effects favor there staying one, so the fork
+exists as an outlet rather than a rival: participants and teams are independently
+addressable and never owned by the league. A league that is only an organization is
+already thin in the way that requires.
 
-> **▸ Open.** What the league ingests from teams, and where a level's meaning lives.
-> The sources split: the Definitions doc has leagues weighting team **levels**; the
-> Teams page and the collective-intelligence article both mix team **scores**. And
-> the "level 1 = most inclusive, level 3 = attack-resistant" meanings sit at the
-> league in the Definitions doc — whether meaning belongs to the league, the domain,
-> or the team decides whether team outputs are combinable, and what format teams
-> must publish. One question; needs one answer.
+> **▸ Open — for the team.** Whether these two positions actually conflict, or are one
+> picture described from opposite ends. What is clear either way: no entity computes
+> the mix.
 
-> **▸ Not yet built.** Leagues do not exist in the code.
+> **▸ Open — what crowd wisdom is, mechanically.** It now sets every weight in the
+> system and is the only input gathered from outside Aura, and no document describes
+> how it is collected, who counts as the crowd, or why it resists capture. Philip's
+> position: it can stay a black box the league works out over time — but a **named**
+> black box, because everything downstream inherits whatever properties it has.
+> Adam — is Updraft the intended mechanism here?
+
+> **▸ Open — levels or scores as the published unit.** Adam says teams publish scores.
+> Ali argues for levels (PR #4): a level is not a score-range label, it is a score
+> **plus** the evaluation requirements of Section 6, so a level is something that has
+> already cleared the team's evidence bar where a raw score has not — which is the same
+> reason Section 6 gives for levels being worth having at all. Both positions are on
+> the record and neither has seen the other. Undecided, and it decides the format every
+> team must publish. The older sources split the same way: the Definitions doc has
+> leagues weighting team **levels**; the Teams page and the collective-intelligence
+> article both mix team **scores**.
+
+> **▸ Not yet built.** None of this exists in the code. No weights are collected, no
+> combination is computed, and there is one implicit team to mix (Section 13).
 
 ---
 
@@ -530,7 +614,13 @@ trainer never gave.
 > participants and evaluations wholesale — the opt-in rule would supersede that, so
 > it needs the team's yes.)
 
-> **▸ Open.** Whether a fork is a snapshot or can keep parts linked to its source.
+> **▸ Decided — a fork is a snapshot. No live link to the source.** Ali, on PR #4.
+> Domain isolation exists so that failure stays contained, and a live link would make
+> a fork's integrity depend on its parent staying healthy — reintroducing exactly what
+> isolation removes. The consent story is cleaner too: opting into a snapshot is a
+> bounded decision, opting into an ongoing link is open-ended and harder to understand
+> what you agreed to. If linking's benefit ever proves out in practice, a participant
+> can re-fork by hand; there is no need to build automatic propagation speculatively.
 
 ---
 
@@ -565,10 +655,10 @@ The design above is largely not implemented. The honest state:
 |---|---|
 | Evaluations, confidence, signed scores, 4× negatives | Built |
 | Level requirements (AND/OR over count, confidence, evaluator level) | Built, for subject and player levels only |
-| Manager energy, seeded and bounded | Built — 4 hops fixed, even split, leaks at dead ends |
+| Manager energy, seeded and bounded | Built — even split, leaks at dead ends; hops hardcoded to 4 where the rule is log(N) |
 | Teams | Not built. Two hardcoded owner keys act as one implicit team |
 | Multiple domains | Not built. Evaluations carry a `domain` field; the scorer ignores it and pools everything under `"BrightID"` |
-| Leagues | Not built |
+| The mix — crowd-wisdom weights, combined consumer-side | Not built. No weights are collected and no combination exists |
 | Non-person subjects | Not built. Subjects are `users/` documents |
 | Per-evaluator cap | Not built, though the Levels document's formula has one |
 | Configurable negative multiplier | Not built |
@@ -585,29 +675,43 @@ gone into the app and SDK.
 
 **For Adam — the scoring math**
 
-1. Energy conservation guardrails: what's the elegant closed-system design, and the
-   dead-end edge cases that come with it.
-2. How initial energy is allocated between team owners.
-3. Hop count: fixed 4 in code, "2 or 4 by team size" in the Levels doc — which is
-   intended, and what goes wrong at higher counts.
+1. Dead-end routing is settled (Section 5); the mechanics aren't. How the
+   redistribution is computed, and what happens on the last hop, where by
+   construction every node is a dead end.
+2. `log(N)` hops: which base, and N over which population — every participant in the
+   domain, or the managers the iteration actually runs over.
+3. How initial energy is allocated between team owners.
 4. The per-evaluator cap: dropped once level requirements existed, or never built?
-5. Manager and trainer levels have no evaluation requirements in code; the Levels
-   doc says all roles do. Choice or artifact?
-6. Flat domains: where does a lone evaluator tier get its weight?
 
 **For the team — design**
 
-7. Team membership and the cap: the three versions in the docs, the outbound-cap
-   proposal, and whatever reasoning we've forgotten. Needs reconstructing together.
-8. What the league ingests and where level meaning lives (Section 8) — decides the
-   common output format teams must publish.
-9. Fork opt-in mechanics: defaults, tranches, team-level joins.
-10. Role unlock rules beyond the shipped third-evaluation rule.
-11. Identifiers for non-person subjects.
-12. The privacy model, essentially all of it.
+5. **What crowd wisdom is, mechanically** (Section 8). It sets every weight in the
+   system and is the only input from outside Aura. Largest undefined thing here.
+6. **Levels or scores as the published unit** (Section 8) — decides the format every
+   team must publish. Adam and Ali are on record on opposite sides.
+7. Whether "the league" and "crowd wisdom supersedes the league" are in conflict or
+   are one picture from two ends (Section 8).
+8. The outbound number (Section 7). Five is convention, not derivation.
+9. Fork opt-in mechanics: defaults, tranches, team-level joins (Section 11).
+10. Role unlock rules beyond the shipped third-evaluation rule. The general rule is
+    settled (Section 6); per-domain rules aren't.
+11. Identifiers for non-person subjects (Section 3). Ali working.
+12. The privacy model, essentially all of it (Section 12). Ali working.
 13. Which branch production runs — `master` or `dev`. The route tables are
     identical; the tell is whether live verification responses carry `modified`
     inside impacts. One valid BrightID settles it.
+
+**Closed since the first draft**, with whose call it was:
+
+| | Called by | Where |
+|---|---|---|
+| Energy flows only along positive evaluations; negatives withdraw flow | Adam | §2 |
+| Three evaluator tiers, fixed — flat domains dissolve | Adam, Philip | §4, §5 |
+| Hops are log(N) | Adam | §5 |
+| Block dead-end routing in the code | Adam | §5 |
+| Role unlock is a design choice, not an artifact | Adam | §6 |
+| The team cap is outbound, at trainer and above | Adam | §7 |
+| A fork is a snapshot; no live link | Ali | §11 |
 
 This list is not complete and isn't meant to be. Found a new one? Add it.
 
