@@ -520,6 +520,12 @@ scattered around it. Somebody convenes the teams, runs whatever crowd wisdom is
 collected through, markets one product, and answers for it when it is wrong. That is
 the league, and it survives the mix moving out of its hands.
 
+The **league contract** in Section 9 is the concrete form of it, and Adam specified
+it in the same review: one contract per domain that takes team registrations and
+fees, holds the funds applications put in, and distributes them by crowd wisdom. It
+computes nothing about trust. So the sharp version of the league is **the money and
+membership rail** — not the calculator, and not nothing.
+
 How the league governs itself is deliberately out of scope. Today it's a few people
 making decisions; later it may have many participants, or defer to a market —
 possibly a prediction-market layer where timestamped answers are graded as reality
@@ -534,12 +540,13 @@ already thin in the way that requires.
 > picture described from opposite ends. What is clear either way: no entity computes
 > the mix.
 
-> **▸ Open — what crowd wisdom is, mechanically.** It now sets every weight in the
-> system and is the only input gathered from outside Aura, and no document describes
-> how it is collected, who counts as the crowd, or why it resists capture. Philip's
-> position: it can stay a black box the league works out over time — but a **named**
-> black box, because everything downstream inherits whatever properties it has.
-> Adam — is Updraft the intended mechanism here?
+> **▸ Open — what crowd wisdom is, mechanically. The largest gap in this document.**
+> It sets every weight in the system, it is the only input gathered from outside Aura,
+> and per Section 9 **it is also what moves the money** — the league contract
+> distributes application funds to teams by applying it. Nothing anywhere describes how
+> it is collected, who counts as the crowd, or why it resists capture. A weighting
+> scheme can be provisional; a payout rule can't. Adam — is Updraft the intended
+> mechanism here?
 
 > **▸ Open — levels or scores as the published unit.** Adam says teams publish scores.
 > Ali argues for levels (PR #4): a level is not a score-range label, it is a score
@@ -568,9 +575,31 @@ Rewards reach participants through their teams — scores provide a natural scal
 dividing a team's share — and applications can direct attention where they need it,
 like paying teams to cover a region.
 
-> **▸ Proposed.** The mechanics — fee structure, payout paths, what the league
-> contract does — get their own proposal document. The League Contract sketch and
-> our economics draft both exist and disagree in places; neither is decided.
+### The league contract
+
+Money moves through a contract, one per domain. Adam's description, on PR #4:
+
+- It accepts **registration from teams**, including a fee, to enter a domain.
+- It accepts **funds from applications** into that domain.
+- It **applies crowd wisdom results to distribute those funds to teams.**
+
+Team owners withdraw their team's funds and allocate them to participants according
+to each participant's score within their tier.
+
+Note what this is and isn't. The contract holds money and gates membership; it does
+not compute anything about trust. Scores stay with teams and the mix stays with
+consumers (Section 8) — but the crowd wisdom that weights the mix is also what moves
+the money, which is the whole reason that mechanism has to be pinned down.
+
+> **▸ Not yet built.** The contract does not exist.
+
+> **▸ Open.** Whether team owners' allocation by score is enforced by the contract or
+> is a convention they follow, and what stops an owner allocating otherwise.
+
+> **▸ Proposed.** The rest of the mechanics — fee structure, payout paths, the fee
+> that creates a team (Section 7) — get their own proposal document, on their own
+> timeline. Ali's call, and it stands: economics does not gate the core spec. The
+> League Contract sketch and our economics draft both exist and disagree in places.
 
 ---
 
@@ -583,10 +612,15 @@ A restaurant review from five years ago wasn't incorrect; the restaurant has cha
 hands twice since. The reviewer has no new information and no reason to revisit
 their answer, so nothing about the evaluation itself will ever mark it as stale.
 
-> **▸ Proposed.** Decay, with the rate tracking how fast the *subject* changes —
-> near zero for "is this a unique human", fast for a restaurant. Decay appears in no
-> existing Aura document; the concept arrived via the protocol draft and the
-> rationale here is ours.
+> **▸ Decided — decay is an option a domain can turn on.** Adam, on PR #4: "Could be
+> useful in some domains. Let's add it as an option." Not a default and not universal:
+> a domain that asks "is this a unique human" wants a rate near zero, a domain asking
+> about restaurants wants a fast one. Decay appears in no existing Aura document — it
+> arrived via the protocol draft and the rationale is ours.
+
+> **▸ Open.** What the rate attaches to. The argument above says decay should track
+> how fast the *subject* changes, which points at the question rather than the domain
+> — a domain could hold both a slow question and a fast one.
 
 ---
 
@@ -604,23 +638,48 @@ a specific question; a trainer said a player was good *at evaluating BrightIDs*,
 carrying that standing into an insurance domain converts it into an opinion the
 trainer never gave.
 
-> **▸ Proposed.** **A fork is an invitation, not conscription.** Participants opt in to a
-> fork that wants them. A trainer chooses whether to join, which of their players to
-> bring, and at what starting level — everyone at level 1, or hand-picked mappings.
-> There's room for automation: standing offers, tranches, a team joining a new
-> domain as a unit and bringing its structure with it. The mechanics are worth
-> exploring; the principle is that nobody's judgment is carried anywhere without
-> their agreement. (The Definitions doc has forks copying subjects, teams,
-> participants and evaluations wholesale — the opt-in rule would supersede that, so
-> it needs the team's yes.)
+The same argument runs the other way at the top of the stack. "This manager evaluates
+well" is a claim about judgment itself, and judgment travels better than domain
+knowledge does.
 
-> **▸ Decided — a fork is a snapshot. No live link to the source.** Ali, on PR #4.
-> Domain isolation exists so that failure stays contained, and a live link would make
-> a fork's integrity depend on its parent staying healthy — reintroducing exactly what
-> isolation removes. The consent story is cleaner too: opting into a snapshot is a
-> bounded decision, opting into an ongoing link is open-ended and harder to understand
-> what you agreed to. If linking's benefit ever proves out in practice, a participant
-> can re-fork by hand; there is no need to build automatic propagation speculatively.
+> **▸ Decided — what a fork carries.** Adam, on PR #4, and now in the Definitions doc:
+> *"Team owners can copy a team into a different domain, taking manager and trainer
+> sets and manager evaluations as a starting point."*
+>
+> - **Managers and trainers copy wholesale**, with manager evaluations. Management
+>   skill transfers across domains readily enough that carrying it isn't the category
+>   error described above.
+> - **Players don't.** Their trainer decides which of them come and at what starting
+>   level — everyone at level 1, or hand-picked mappings. This is the case where the
+>   judgment really was about one domain's question, and Adam's reason is the same one
+>   this document gave: player skill in one domain may or may not transfer to another.
+>
+> This supersedes the older Definitions language, which had forks copying subjects,
+> teams, participants and evaluations wholesale.
+
+> **▸ Proposed — two bounds on the default copy.** Copying by default is right for the
+> cold start, and this document's earlier draft was wrong to demand opt-in everywhere.
+> What still needs protecting is narrower: a copy should never become a *claim* about
+> the person copied.
+>
+> - **You can disown a domain.** A copied participant can remove themselves and their
+>   standing from a fork at any time, without needing the forking team's cooperation.
+> - **A domain can't advertise you.** That a manager's evaluations were copied into a
+>   domain is a fact about the copy, not a statement that they back it. Copied standing
+>   is not endorsement and can't be presented as such.
+>
+> Room for automation either way: standing offers, tranches, a team joining a new
+> domain as a unit and bringing its structure with it.
+
+> **▸ Decided — a fork is a snapshot. No live link to the source.** Ali and Adam, both
+> on PR #4 — Adam: "It shouldn't stay linked to its source. It needs to be allowed to
+> fully diverge." Domain isolation exists so that failure stays contained, and a live
+> link would make a fork's integrity depend on its parent staying healthy —
+> reintroducing exactly what isolation removes. The consent story is cleaner too:
+> opting into a snapshot is a bounded decision, opting into an ongoing link is
+> open-ended and harder to understand what you agreed to. If linking's benefit ever
+> proves out in practice, a participant can re-fork by hand; there is no need to build
+> automatic propagation speculatively.
 
 ---
 
@@ -659,6 +718,8 @@ The design above is largely not implemented. The honest state:
 | Teams | Not built. Two hardcoded owner keys act as one implicit team |
 | Multiple domains | Not built. Evaluations carry a `domain` field; the scorer ignores it and pools everything under `"BrightID"` |
 | The mix — crowd-wisdom weights, combined consumer-side | Not built. No weights are collected and no combination exists |
+| The league contract — registrations, fees, fund distribution | Not built |
+| Decay | Not built |
 | Non-person subjects | Not built. Subjects are `users/` documents |
 | Per-evaluator cap | Not built, though the Levels document's formula has one |
 | Configurable negative multiplier | Not built |
@@ -685,19 +746,24 @@ gone into the app and SDK.
 
 **For the team — design**
 
-5. **What crowd wisdom is, mechanically** (Section 8). It sets every weight in the
-   system and is the only input from outside Aura. Largest undefined thing here.
+5. **What crowd wisdom is, mechanically** (Sections 8 and 9). It sets every weight in
+   the system, it is the only input from outside Aura, and it moves the money.
+   Largest undefined thing in this document by a distance.
 6. **Levels or scores as the published unit** (Section 8) — decides the format every
    team must publish. Adam and Ali are on record on opposite sides.
 7. Whether "the league" and "crowd wisdom supersedes the league" are in conflict or
-   are one picture from two ends (Section 8).
-8. The outbound number (Section 7). Five is convention, not derivation.
-9. Fork opt-in mechanics: defaults, tranches, team-level joins (Section 11).
-10. Role unlock rules beyond the shipped third-evaluation rule. The general rule is
+   are one picture from two ends (Sections 8 and 9).
+8. Whether the two bounds on a default fork copy — disown, and no advertising —
+   are accepted (Section 11).
+9. Whether allocation by score inside a team is contract-enforced or a convention
+   (Section 9).
+10. The outbound number (Section 7). Five is convention, not derivation.
+11. What a decay rate attaches to — the domain or the question (Section 10).
+12. Role unlock rules beyond the shipped third-evaluation rule. The general rule is
     settled (Section 6); per-domain rules aren't.
-11. Identifiers for non-person subjects (Section 3). Ali working.
-12. The privacy model, essentially all of it (Section 12). Ali working.
-13. Which branch production runs — `master` or `dev`. The route tables are
+13. Identifiers for non-person subjects (Section 3). Ali working.
+14. The privacy model, essentially all of it (Section 12). Ali working.
+15. Which branch production runs — `master` or `dev`. The route tables are
     identical; the tell is whether live verification responses carry `modified`
     inside impacts. One valid BrightID settles it.
 
@@ -711,7 +777,9 @@ gone into the app and SDK.
 | Block dead-end routing in the code | Adam | §5 |
 | Role unlock is a design choice, not an artifact | Adam | §6 |
 | The team cap is outbound, at trainer and above | Adam | §7 |
-| A fork is a snapshot; no live link | Ali | §11 |
+| Decay exists, as a per-domain option | Adam | §10 |
+| A fork carries managers and trainers by default; players come via their trainer | Adam | §11 |
+| A fork is a snapshot; no live link | Ali, Adam | §11 |
 
 This list is not complete and isn't meant to be. Found a new one? Add it.
 
