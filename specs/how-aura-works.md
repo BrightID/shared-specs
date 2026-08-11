@@ -181,7 +181,7 @@ Each **tier** says who is evaluated, what is asked about them, and who evaluates
 | Subject | BrightIDs | is this a person's only account? | Players |
 | Player | Players | does this player answer accurately? | Trainers |
 | Trainer | Trainers | does this trainer back accurate players? | Managers |
-| Manager | Managers | does this manager back accurate trainers? | Managers |
+| Manager | Managers | does this manager evaluate well? | Managers |
 
 Each tier judges how well the tier below judges. A trainer looks for accurate
 players and takes responsibility for the ones they vouch for; if those players prove
@@ -208,6 +208,26 @@ flat — but the three tiers run underneath it.
 Trainers carry a power the table doesn't show: an evaluation names the team or teams
 it counts for. Trainers therefore decide which players land on which teams, and can
 hold new players on a starter team until they have built a record.
+
+### The manager row asks two things at once
+
+Every other row in the table names what is being judged. The manager row can't,
+because a manager's evaluation of another manager does two jobs. It sets that
+manager's score — the force they carry when they evaluate trainers — and it directs
+energy, which is their influence over other managers (Section 5). One evaluation,
+two consequences, and the question it asks has never been written down.
+
+Those are different competencies. Backing accurate trainers is hands-on assessment
+of people doing the work. Backing accurate managers is judgment about judgment. A
+manager can be good at one and poor at the other, and nothing in the system today
+tells them apart.
+
+> **▸ Open.** Whether the manager tier asks one question or two, and whether the two
+> should be evaluated separately — with energy directed by the peer judgment rather
+> than the trainer-facing one. This would not add a tier; managers would remain the
+> top tier, asked two questions instead of one. It sits upstream of how negative
+> manager evaluations should work (Sections 2 and 5) and of what energy keys off, so
+> it wants answering before either.
 
 ### Anyone can participate immediately
 
@@ -648,24 +668,28 @@ gone into the app and SDK.
 
 **Design**
 
-5. What crowd wisdom is, mechanically (Sections 8 and 9). It sets every weight, it's
+5. Whether the manager tier asks one question or two (Section 4): backing accurate
+   trainers and backing accurate managers are different competencies carried by a
+   single evaluation. Upstream of question 4 and of what energy keys off.
+
+6. What crowd wisdom is, mechanically (Sections 8 and 9). It sets every weight, it's
    the only input from outside Aura, and it moves the money. The largest undefined
    thing in this document by a distance.
-6. Levels or scores as the published unit (Section 8) — decides the format every
+7. Levels or scores as the published unit (Section 8) — decides the format every
    team must publish.
-7. Whether allocation by score inside a team is enforced by the league contract or
+8. Whether allocation by score inside a team is enforced by the league contract or
    is a convention team owners follow, and what stops an owner allocating otherwise.
-8. The outbound number (Section 7). Five is the working convention, not a
+9. The outbound number (Section 7). Five is the working convention, not a
    derivation.
-9. What a decay rate attaches to — the domain or the individual question, since a
+10. What a decay rate attaches to — the domain or the individual question, since a
    domain could hold both a slow question and a fast one (Section 10).
-10. What stops someone spinning up many identities to increase payouts (Sections 3
+11. What stops someone spinning up many identities to increase payouts (Sections 3
     and 9).
-11. Role unlock rules per domain, beyond the shipped third-evaluation rule
+12. Role unlock rules per domain, beyond the shipped third-evaluation rule
     (Section 4).
-12. How identifiers for non-person subjects are created and deduplicated
+13. How identifiers for non-person subjects are created and deduplicated
     (Section 3).
-13. The privacy model, essentially all of it (Section 12).
+14. The privacy model, essentially all of it (Section 12).
 
 This list is not complete and isn't meant to be. Found a new one? Add it.
 
