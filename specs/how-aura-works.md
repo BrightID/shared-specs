@@ -28,8 +28,10 @@ The scorer referenced throughout is
 on `master` of the Aura node fork — 477 lines, the only scoring implementation we
 found in either org. `master` stops at October 2024; the `dev` branch is active
 (scorer last touched July 2025, repo through May 2026, differing from `master` only
-by a `modified` timestamp on impacts). Which branch production runs is unverified —
-every mechanism cited below is identical on both.
+by a `modified` timestamp on impacts). All current development and testing runs on
+`dev`, at aura-test.brightid.org; production is not in use yet, and the `modified`
+change is still to be merged into it. Every mechanism cited below is identical on
+both branches.
 
 ---
 
@@ -436,6 +438,9 @@ A team starts with one or more owners, who become its first managers and the ori
 of its energy. Owners add and remove owners by a two-thirds majority. Owners define
 the team's levels. Creating a team costs a fee.
 
+How the team's starting energy is divided between the owners is the owners' own
+decision, taken by quorum. A quorum is likewise required to add or remove a member.
+
 > **▸ Not yet built.** All of Section 7. The backend has two hardcoded owner keys
 > acting as a single implicit team — no teams collection, no membership, no per-team
 > scoring.
@@ -454,7 +459,8 @@ the scores and combines them, and every consumer doing so arrives at the same re
 independently. There is no privileged copy of the answer. This is the same rule as
 everywhere else in Aura: the output is derived, so anyone holding the inputs can
 recompute it (Section 5). Crowd wisdom is the one input the system collects from
-outside itself.
+outside itself; the fullest written account of it is
+[Decentralizing BrightID with Collective Intelligence](https://paragraph.com/@adamstallard/decentralizing-brightid-with-collective-intelligence).
 
 The league is the organization, not the calculator. It is the metanode — where the
 final decision gets made, and what makes this one cohesive platform rather than a
@@ -634,37 +640,32 @@ gone into the app and SDK.
 2. Dead-end routing is settled (Section 5); the mechanics aren't. How the
    redistribution is computed, and what happens on the last hop, where by
    construction every node is a dead end.
-3. How initial energy is allocated between team owners. The even split is an
-   implementation default, not a decision.
-4. The per-evaluator cap in the Levels doc's formula: dropped once level
+3. The per-evaluator cap in the Levels doc's formula: dropped once level
    requirements existed, or never built?
-5. Whether a negative manager evaluation should have any effect in the energy layer
+4. Whether a negative manager evaluation should have any effect in the energy layer
    (Sections 2 and 5). Today it has none — the difference between withholding
    support and actively withdrawing it does not exist above the trainer tier.
 
 **Design**
 
-6. What crowd wisdom is, mechanically (Sections 8 and 9). It sets every weight, it's
+5. What crowd wisdom is, mechanically (Sections 8 and 9). It sets every weight, it's
    the only input from outside Aura, and it moves the money. The largest undefined
    thing in this document by a distance.
-7. Levels or scores as the published unit (Section 8) — decides the format every
+6. Levels or scores as the published unit (Section 8) — decides the format every
    team must publish.
-8. Whether allocation by score inside a team is enforced by the league contract or
+7. Whether allocation by score inside a team is enforced by the league contract or
    is a convention team owners follow, and what stops an owner allocating otherwise.
-9. The outbound number (Section 7). Five is the working convention, not a
+8. The outbound number (Section 7). Five is the working convention, not a
    derivation.
-10. What a decay rate attaches to — the domain or the individual question, since a
-    domain could hold both a slow question and a fast one (Section 10).
-11. What stops someone spinning up many identities to increase payouts (Sections 3
+9. What a decay rate attaches to — the domain or the individual question, since a
+   domain could hold both a slow question and a fast one (Section 10).
+10. What stops someone spinning up many identities to increase payouts (Sections 3
     and 9).
-12. Role unlock rules per domain, beyond the shipped third-evaluation rule
+11. Role unlock rules per domain, beyond the shipped third-evaluation rule
     (Section 4).
-13. How identifiers for non-person subjects are created and deduplicated
+12. How identifiers for non-person subjects are created and deduplicated
     (Section 3).
-14. The privacy model, essentially all of it (Section 12).
-15. Which branch production runs — `master` or `dev`. The route tables are
-    identical; the tell is whether live verification responses carry `modified`
-    inside impacts. One valid BrightID settles it.
+13. The privacy model, essentially all of it (Section 12).
 
 This list is not complete and isn't meant to be. Found a new one? Add it.
 
