@@ -107,13 +107,10 @@ should propagate harder than praise.
 > **▸ Not yet built.** The multiplier should be configurable. Four has felt roughly
 > right for years, but there will be domains where it isn't.
 
-The 4× belongs to score accumulation. It never touches energy: energy moves only
-along positive evaluations (Section 5), and a negative evaluation acts by
-withdrawing flow rather than reversing it. When Alice evaluates Bob negatively, Bob
-loses the energy Alice had been sending him and his influence over other managers
-shrinks — which is the intended result. Energy flowing negatively would instead hand
-Bob more to spend, growing the influence of the manager the network just judged
-badly.
+The 4× belongs to score accumulation, and never touches energy. Energy moves only
+along positive manager evaluations (Section 5), so a negative evaluation of a
+manager is indistinguishable there from no evaluation at all: it changes that
+manager's score, not the energy reaching them.
 
 ### An evaluation is a standing claim
 
@@ -641,28 +638,31 @@ gone into the app and SDK.
    implementation default, not a decision.
 4. The per-evaluator cap in the Levels doc's formula: dropped once level
    requirements existed, or never built?
+5. Whether a negative manager evaluation should have any effect in the energy layer
+   (Sections 2 and 5). Today it has none — the difference between withholding
+   support and actively withdrawing it does not exist above the trainer tier.
 
 **Design**
 
-5. What crowd wisdom is, mechanically (Sections 8 and 9). It sets every weight, it's
+6. What crowd wisdom is, mechanically (Sections 8 and 9). It sets every weight, it's
    the only input from outside Aura, and it moves the money. The largest undefined
    thing in this document by a distance.
-6. Levels or scores as the published unit (Section 8) — decides the format every
+7. Levels or scores as the published unit (Section 8) — decides the format every
    team must publish.
-7. Whether allocation by score inside a team is enforced by the league contract or
+8. Whether allocation by score inside a team is enforced by the league contract or
    is a convention team owners follow, and what stops an owner allocating otherwise.
-8. The outbound number (Section 7). Five is the working convention, not a
+9. The outbound number (Section 7). Five is the working convention, not a
    derivation.
-9. What a decay rate attaches to — the domain or the individual question, since a
-   domain could hold both a slow question and a fast one (Section 10).
-10. What stops someone spinning up many identities to increase payouts (Sections 3
+10. What a decay rate attaches to — the domain or the individual question, since a
+    domain could hold both a slow question and a fast one (Section 10).
+11. What stops someone spinning up many identities to increase payouts (Sections 3
     and 9).
-11. Role unlock rules per domain, beyond the shipped third-evaluation rule
+12. Role unlock rules per domain, beyond the shipped third-evaluation rule
     (Section 4).
-12. How identifiers for non-person subjects are created and deduplicated
+13. How identifiers for non-person subjects are created and deduplicated
     (Section 3).
-13. The privacy model, essentially all of it (Section 12).
-14. Which branch production runs — `master` or `dev`. The route tables are
+14. The privacy model, essentially all of it (Section 12).
+15. Which branch production runs — `master` or `dev`. The route tables are
     identical; the tell is whether live verification responses carry `modified`
     inside impacts. One valid BrightID settles it.
 
