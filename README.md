@@ -2,16 +2,6 @@
 
 ADRs and specs shared across two or more BrightID repos, in one place.
 
-Formerly `aura-decisions`. That repo held ADRs, cross-repo specs, and a
-"big picture" narrative document (`how-aura-works.md`) together. The
-narrative document didn't fit alongside ADRs and small specs — it needed
-its own governance and its own home — so it and the historical-context
-index moved to [BrightID/foundations](https://github.com/BrightID/foundations),
-which is now the authoritative description of how BrightID works and
-what we mean to build (Aura included — Aura is a core facet of BrightID,
-not a separate project). This repo kept its git history and its role for
-everything else: decisions, and specs genuinely shared across repos.
-
 - `decisions/` — ADRs: what we decided, why, and what we considered and
   rejected. See [How ADRs work](#how-adrs-work) below.
 - `openspec/` — this repo is also an OpenSpec
