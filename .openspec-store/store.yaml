@@ -1,0 +1,3 @@
+version: 1
+id: shared-specs
+remote: https://github.com/BrightID/shared-specs.git
