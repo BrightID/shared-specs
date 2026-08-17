@@ -9,23 +9,11 @@ schema: spec-driven
 #     We use conventional commits
 #     Domain: e-commerce platform
 context: |
-  This is BrightID/shared-specs: the OpenSpec store for specs and ADRs
-  shared across two or more BrightID repos. Not a code repo. Consumers
-  reference it read-only via `references:` in their own
-  openspec/config.yaml; they don't have their own code here. Only move a
-  spec here once it's confirmed to apply to more than one repo.
+  This is BrightID/shared-specs: the OpenSpec store for specs and ADRs shared across two or more BrightID repos. Not a code repo. Consumers reference it read-only via `references:` in their own openspec/config.yaml; they don't have their own code here. Only move a spec here once it's confirmed to apply to more than one repo.
 
-  `decisions/` holds ADRs (MADR-lite, see decisions/template.md) - a
-  separate, non-OpenSpec-native concept living alongside the openspec/
-  store structure. A decision is real when a human states it. ADRs are
-  never edited after acceptance, only superseded by a later ADR that says
-  so explicitly - nothing here is precious, but the record of what was
-  decided and when stays intact.
+  `decisions/` holds ADRs (MADR-lite, see decisions/template.md) - a separate, non-OpenSpec-native concept living alongside the openspec/ store structure. A decision is real when a human states it. ADRs are never edited after acceptance, only superseded by a later ADR that says so explicitly - nothing here is precious, but the record of what was decided and when stays intact.
 
-  This repo does not hold the BrightID/Aura big-picture design doc - that
-  lives in BrightID/foundations, governed by its own OpenSpec workflow,
-  and should be treated as a compass/reference point rather than a store
-  to `references:` from here.
+  This repo does not hold the BrightID/Aura big-picture design doc - that lives in BrightID/foundations, governed by its own OpenSpec workflow, and should be treated as a compass/reference point rather than a store to `references:` from here.
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
