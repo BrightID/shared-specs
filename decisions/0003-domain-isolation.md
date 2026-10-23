@@ -1,54 +1,44 @@
-# ADR-0003: An evaluation counts only in the domain on the operation
+# ADR-0003: An evaluation belongs to its named domain
 
 - Status: proposed
 - Date: 2026-10-23
-- Deciders: none yet. Merging this pull request accepts the rule. Adam, Philip, or Ali may amend it before then.
+- Deciders: Ali confirmed the first-release scope below on 2026-10-23. Philip and Adam's admission-policy decision remains open. Merging this PR accepts the proposed shared contract.
 
 ## Context
 
-Uniqueness and Interfold share one `Evaluate` operation. On `dev` of [BrightID-Aura-Node](https://github.com/Meta-Node/BrightId-Aura-Node), the node keeps one evaluation per (`domain`, `category`) pair on the directed connection from the evaluator to the evaluated person ([`upsertAuraEval`](https://github.com/Meta-Node/BrightId-Aura-Node/blob/dev/web_services/foxx/v6/db.js#L160)). The schema requires `domain`. When `category` is omitted, the node stores `subject` ([`schemas.js`](https://github.com/Meta-Node/BrightId-Aura-Node/blob/dev/web_services/foxx/v6/schemas.js#L59)). Joi's required string rejects a missing `domain` and accepts `""`.
+The node stores an Evaluate record per domain/category pair on a directed evaluator-to-subject connection. Existing inbound connection reads expose these records. The scorer currently selects the four role categories without filtering domain and publishes results under BrightID. Its manager energy calculation also ignores domain.
 
-The scorer selects evaluations whose `category` is `subject`, `player`, `trainer`, or `manager`, and writes that result under the domain name `BrightID`. It does not read `eval.domain` ([`aura.py`](https://github.com/Meta-Node/BrightId-Aura-Node/blob/dev/scorer/verifications/aura.py#L155)). A category outside those four is not added to a BrightID category, and the scorer writes a score under no other domain name.
-
-The Aura player, the client this rule binds, types `domain` as the literal `BrightID` ([`operation_types.d.ts`](https://github.com/BrightID/aura-frontend/blob/main/src/BrightID/api/operation_types.d.ts#L74)).
+Interfold asks three separate questions about an operator. Recording these answers does not require another weighted scoring hierarchy.
 
 ## Decision
 
-Merging this pull request accepts the rule below. It does not change the scorer or the client. Those programs follow the rule only after the issues under Consequences land.
+An evaluation belongs only to the exact domain string on its operation, including case. Missing and empty domains are invalid and cannot fall back to BrightID. The client sends BrightID for Uniqueness and Interfold for Interfold.
 
-An evaluation counts only in the `domain` string on that `Evaluate` operation. The string matches exactly, including case. When `domain` is `Interfold`, an `evaluation` of `positive` or `negative` does not change the level or score of any BrightID category. When `domain` is `BrightID`, an `evaluation` of `positive` or `negative` does not change the level or score of any Interfold category. The split holds when the `category` string is the same in both domains.
+Interfold uses the existing Evaluate operation with categories Keyholder, Self-custody, and Disclosure. A Yes maps to positive and a No maps to negative. Confidence is an integer from 1 through 4. No question-index field or second operation is introduced.
 
-A missing `domain`, and a `domain` of `""`, are invalid. The node must not store either one, and must not substitute `BrightID`.
+The first release records authenticated Interfold endorsements and exposes them through existing connection reads. Anyone with a valid signing identity can endorse, subject to existing protocol validation and operation limits. No evaluator allowlist, team membership, or minimum Aura level is required to submit.
 
-For a Uniqueness request, the client sends `domain` `BrightID`. For an Interfold request, the client sends `domain` `Interfold`.
+BrightID's entire calculation uses BrightID evidence only. Interfold's weighted scores, energy, and levels are deferred. BrightID evidence cannot be silently reused as Interfold endorsements.
 
-Interfold's three questions are three categories on this same `Evaluate` operation. The category strings are exact:
-
-- `Keyholder`
-- `Self-custody` (the hyphen is part of the string)
-- `Disclosure`
-
-For an Interfold request, a yes is `evaluation` `positive` and a no is `evaluation` `negative`, and the client sends one of those three strings in `category`. There is no second operation type, and no question-index field.
-
-BrightID categories stay `subject`, `player`, `trainer`, and `manager`. Those four strings are not names of Interfold questions.
+Operator answers happen inside Aura. BrightID mobile needs no answering or domain-signing change (AUR-343, Done). Whether vouch-app is standalone or integrated into core Aura remains open; the older subject-facing interface is not the default target.
 
 ## Rationale
 
-The stored key is already (`domain`, `category`). The scorer and the client have to use the domain half of that key. Distinct category names do not replace it. An Interfold answer posted with `domain` `BrightID` and `category` `subject` would change the BrightID subject score, because that is how the scorer selects today.
-
-`Evaluate` stores no question index. `confidence` is the weight of the evaluation. One category per question uses a field the operation already has.
+The stored domain/category key already separates the three questions. Keeping BrightID scoring restricted to its own domain protects uniqueness while allowing Interfold to collect evidence without choosing a second hierarchy. Open submission preserves participation without confusing an answer with authority to admit an operator.
 
 ## Alternatives considered
 
-- **One Interfold category plus a question index.** No stored field is an index. Putting the index in `confidence` would replace the weight. Adding a field, or a second operation type, would be a new protocol.
-- **Treat a missing or empty domain as BrightID.** A request that omitted `domain` would be stored as Uniqueness. Rejection makes that request fail.
+- **One category plus a question index:** Evaluate has no such field. Confidence represents certainty and cannot encode the question.
+- **Missing-domain fallback:** silently converts an incomplete request into BrightID evidence.
+- **Weighted Interfold scoring in the first release:** requires decisions about evaluator standing, hierarchy initialization, and levels that are unnecessary for evidence collection.
+- **Trusted-evaluator allowlist:** deferred; Ali chose open submission. Any later restriction on which answers count belongs in the admission-policy decision.
 
 ## Consequences
 
-[AUR-339](https://linear.app/aura-brightid/issue/AUR-339/scorer-partitions-evaluations-by-domain) changes the scorer so it counts an evaluation only when `eval.domain` is the domain whose score it is writing, and so `domains[].name` is that same string.
+The shared behavioral contract, implementation tasks, and open decisions live in [the Interfold OpenSpec change](../openspec/changes/interfold-live-endorsements/proposal.md). This PR changes planning documents only; it does not make the running programs comply.
 
-[AUR-340](https://linear.app/aura-brightid/issue/AUR-340/client-sends-the-requested-domain) changes the Aura player so a Uniqueness post sends `domain` `BrightID` and an Interfold post sends `domain` `Interfold`. [AUR-341](https://linear.app/aura-brightid/issue/AUR-341/player-reads-the-active-domain) changes that player so a Uniqueness screen shows only categories stored under `BrightID`, and an Interfold screen shows only categories stored under `Interfold`.
+Philip and Adam must decide the admission policy before automatic admission is built. The app shows current evidence without applying the demo's threshold, No veto, or simulated levels. A locally computed summary is not a node-signed verification.
 
-[AUR-343](https://linear.app/aura-brightid/issue/AUR-343/decide-whether-brightid-mobile-signs-the-app-domain) asks whether the BrightID mobile app, a different program from the Aura player, signs an `Evaluate` whose `domain` is the domain a linking app asked for. This rule does not decide that, and it does not put the mobile app under the client rules above.
+App placement and a reusable authenticated signer must be resolved before UI integration. The node's existing signature checks remain required. Practice personas cannot authorize live answers, and resetting practice cannot erase applied node evaluations.
 
-Today the scorer adds a `subject` evaluation to the BrightID subject score even when `domain` is `Interfold` or `""`. AUR-339 stops that. The node still stores `""`, which this rule forbids, and still stores an omitted `category` as `subject`. After AUR-339, an Interfold post that omits `category` would be stored as Interfold `subject`, which is not one of the three questions. The client has to send the category string. Rejecting `""` is a change in BrightID-Aura-Node. This file does not make that change.
+The broader design in [How Aura Works](https://github.com/BrightID/foundations/blob/main/how-aura-works.md) remains the direction for future domain scoring. This first release does not claim to implement it.
