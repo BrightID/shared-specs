@@ -20,23 +20,23 @@ The app's current lowercase domain, practice aliases, subject category, and ques
 
 ### Resolve signing and app placement before wiring the UI
 
-The shared wire contract does not depend on whether vouch-app ships separately or inside core Aura. The implementation depends on that choice and a proven authenticated signer. First test an existing signer against aura-test with real test identities; reuse it if possible. If reuse fails, complete the signing prerequisite before live writes. Do not invent a passkey service, shared signing key, or mobile flow in this proposal. The app-local adapter contract and UI integration follow the app-placement decision.
+The shared wire contract does not depend on whether vouch-app ships separately or inside core Aura. Before UI integration, test whether the chosen app can produce an Evaluate signature that the node accepts for the evaluator identifier. Reuse an existing signing implementation if possible; otherwise implement operation signing before live writes. This does not require BrightID verification, app login, or a passkey. Keep the existing protocol. The app implementation chooses key storage without adding the submission gates prohibited by Open endorsement participation. The app-local adapter contract and UI integration follow the app-placement decision.
 
 ### Display evidence until admission is decided
 
-Anyone may submit; this permission supplies no independent-person or trust guarantee. Keep identity and confidence visible so Philip and Adam can choose a policy later. Do not implement the demo's two-Yes threshold, No veto, or simulated levels. After policy acceptance, add a separate change specifying enforcement in the Interfold consumer and matching presentation in Aura.
+Anyone may submit; this permission supplies no independent-person or trust guarantee. Keep identity and confidence visible so Philip and Adam can choose a policy later. Do not implement the demo's two-Yes threshold, No veto, or simulated levels. After policy acceptance, add a separate change specifying enforcement in the Interfold consumer and matching presentation in the chosen endorsement app.
 
 ## Risks / Trade-offs
 
 - Open participation allows multiple identities controlled by one person. Raw counts do not establish independent support; automatic admission stays off.
-- Existing read endpoints return node records, not a signed admission result. The live view identifies the response as evidence.
+- Endorsement evidence comes from signed Evaluate operations accepted by the node. Inbound connection reads return their stored records without the original signatures. Consumers rely on the queried node for those records; neither the response nor an app summary is an independently verifiable endorsement or a node-signed admission result.
 - A room reset cannot erase signed node evaluations. Keep live evidence outside the practice world and preserve it across resets.
 - Node validation may already reject empty strings in the deployed validator. Measure that first; change only what is missing.
 
 ## Rollout and rollback
 
 1. Land and verify the BrightID isolation fix and nonempty-domain behavior on aura-test before enabling a live writer.
-2. Resolve app placement and prove the signer; specify the app-local adapter behavior without copying this shared contract.
+2. Resolve app placement and test operation signing against aura-test; specify the app-local adapter behavior without copying this shared contract.
 3. Enable Interfold writes and evidence reads for testing. Verify a real positive answer, replacement by a negative answer, independent questions, and unchanged BrightID results.
 4. Release evidence collection with admission explicitly undecided. Philip and Adam's policy work can proceed independently.
 

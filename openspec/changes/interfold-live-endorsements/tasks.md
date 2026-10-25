@@ -14,13 +14,13 @@ This is a shared implementation plan, not completed work. App placement and sign
 - [ ] 2.2 Test the deployed validator for missing and empty domains; change only missing validation and verify invalid writes store nothing while valid BrightID and Interfold writes still work.
 - [ ] 2.3 Verify both protections on aura-test with the regression checks and record the deployed revision before enabling app writes.
 
-## 3. Authenticated app integration
+## 3. Signed evaluation integration
 
-- [ ] 3.1 Test whether an existing Aura signer can submit and confirm an Evaluate on aura-test with real evaluator/subject IDs; record the result, integration path, and revision. If it cannot, complete the signing prerequisite and repeat this check before proceeding.
+- [ ] 3.1 Test whether the chosen app can sign, submit, and confirm an Evaluate on aura-test for evaluator/operator IDs under the existing node protocol; record the result, integration path, and revision. Reuse an existing signing implementation if possible; otherwise implement operation signing and repeat this check before proceeding. This integration test adds no requirement for BrightID verification, login, or a passkey.
 - [ ] 3.2 After app placement, specify the app-local adapter contract referencing this shared contract; verify it includes exact wire mapping, independent read/write switches, pending/application/failure states, retry, and pre-submit undo (AUR-344).
-- [ ] 3.3 Implement the writer without a team, level, or allowlist gate; verify all three questions and both answers use the expected domain/category and integer confidence, unsigned identities cannot write, and failures stay retryable (AUR-345).
+- [ ] 3.3 Implement the writer without a team, level, or allowlist gate; verify all three questions and both answers use the expected domain/category and integer confidence, evaluators without BrightID verification can submit, missing or invalid signatures are rejected, and failures stay retryable (AUR-345).
 - [ ] 3.4 Implement independent Interfold write/read switches with safe practice separation; verify Uniqueness stays mocked, reset makes no node change, and no seed record appears as live evidence (AUR-346).
-- [ ] 3.5 Read current inbound Interfold evidence and show evaluator, answer, confidence, and modification time; verify replacements do not duplicate answers, other domains and malformed records are excluded, and the view makes no admission, simulated-level, or unsupported signature claim (AUR-347).
+- [ ] 3.5 Read stored Interfold evaluations from inbound connections and show evaluator, answer, confidence, and modification time; verify replacements do not duplicate answers, other domains and malformed records are excluded, a connection without a qualifying evaluation supplies no endorsement, summaries derive only from qualifying evaluations, and the view makes no admission, simulated-level, or unsupported signature claim (AUR-347).
 
 ## 4. Integration proof
 
@@ -30,5 +30,5 @@ This is a shared implementation plan, not completed work. App placement and sign
 ## Workflow follow-up
 
 - Keep AUR-340 and AUR-341 deferred unless the app-placement decision selects their interface; do not let them block this milestone by default.
-- After Philip and Adam accept a policy, propose Interfold consumer enforcement and matching Aura presentation in a separate change. Do not implement admission in this one.
+- After Philip and Adam accept a policy, propose Interfold consumer enforcement and matching presentation in the chosen endorsement app in a separate change. Do not implement admission in this one.
 - Archive only after the implementation tasks are complete and reviewed. This planning PR is not an implementation completion claim.

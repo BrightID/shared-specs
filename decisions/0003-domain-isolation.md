@@ -16,11 +16,11 @@ An evaluation belongs only to the exact domain string on its operation, includin
 
 Interfold uses the existing Evaluate operation with categories Keyholder, Self-custody, and Disclosure. A Yes maps to positive and a No maps to negative. Confidence is an integer from 1 through 4. No question-index field or second operation is introduced.
 
-The first release records authenticated Interfold endorsements and exposes them through existing connection reads. Anyone with a valid signing identity can endorse, subject to existing protocol validation and operation limits. No evaluator allowlist, team membership, or minimum Aura level is required to submit.
+The first release records Interfold endorsements as signed Evaluate operations and exposes their stored records through existing connection reads. Participation follows Open endorsement participation in the Interfold spec; no additional authentication or verification gate is introduced.
 
 BrightID's entire calculation uses BrightID evidence only. Interfold's weighted scores, energy, and levels are deferred. BrightID evidence cannot be silently reused as Interfold endorsements.
 
-Operator answers happen inside Aura. BrightID mobile needs no answering or domain-signing change (AUR-343, Done). Whether vouch-app is standalone or integrated into core Aura remains open; the older subject-facing interface is not the default target.
+The endorsement app may be standalone vouch-app or integrated into core Aura; that choice remains open. BrightID mobile needs no answering or domain-signing change (AUR-343, Done). The older subject-facing interface is not the default target.
 
 ## Rationale
 
@@ -39,6 +39,6 @@ The shared behavioral contract, implementation tasks, and open decisions live in
 
 Philip and Adam must decide the admission policy before automatic admission is built. The app shows current evidence without applying the demo's threshold, No veto, or simulated levels. A locally computed summary is not a node-signed verification.
 
-App placement and a reusable authenticated signer must be resolved before UI integration. The node's existing signature checks remain required. Practice personas cannot authorize live answers, and resetting practice cannot erase applied node evaluations.
+Before UI integration, choose app placement and test whether the chosen app can sign Evaluate operations for an evaluator identifier under the existing node protocol. This is a test of the app integration, not a requirement for BrightID verification, login, or passkeys. A practice alias alone cannot sign an operation, and resetting practice cannot erase applied node evaluations.
 
 The broader design in [How Aura Works](https://github.com/BrightID/foundations/blob/main/how-aura-works.md) remains the direction for future domain scoring. This first release does not claim to implement it.

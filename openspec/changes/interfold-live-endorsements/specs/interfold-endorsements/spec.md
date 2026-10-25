@@ -1,20 +1,30 @@
 ## Purpose
 
-Let anyone record authenticated answers about Interfold operators and let applications consume current evidence without assuming an admission policy.
+Let anyone submit signed evaluations about Interfold operators and let applications read their current stored records without assuming an admission policy. The endorsement app is whichever client is chosen for this experience: standalone vouch-app or integration into core Aura. That placement is undecided. Practice records are local mock or seed answers generated for practice; signed evaluations accepted by a test node are node data.
+
+Endorsement evidence comes from signed Evaluate operations accepted by the node. Inbound connection reads expose their stored auraEvaluations records without the original signatures. Consumers rely on the queried node for those records; the response does not independently prove an evaluation signature.
 
 ## ADDED Requirements
 
 ### Requirement: Open endorsement participation
 
-The Aura app SHALL allow anyone with a valid node signing identity to submit Interfold answers without an evaluator allowlist, team membership, or minimum Aura level. Existing protocol signature checks and operation limits SHALL remain in force.
+The endorsement app SHALL allow anyone who can sign Evaluate for their evaluator identifier under the existing node protocol to submit Interfold answers. It SHALL NOT add a requirement for BrightID verification, team membership, an evaluator allowlist, an Aura level, app login, or a passkey. Existing node signature checks, protocol validation, and operation limits SHALL remain in force.
 
 #### Scenario: Evaluator without standing
-- **WHEN** an authenticated evaluator with no Aura level or team membership submits a valid Interfold answer within existing operation limits
+- **WHEN** an evaluator without BrightID verification, an Aura level, or team membership submits an Interfold answer with a valid operation signature within existing operation limits
 - **THEN** the app permits submission without an additional participation gate
 
 #### Scenario: Practice persona cannot authorize a live answer
-- **WHEN** a selected practice persona has no authenticated signing identity
+- **WHEN** a selected practice persona is only an alias and the app cannot sign for its evaluator identifier
 - **THEN** the app does not submit a live operation as that persona
+
+#### Scenario: Missing or invalid operation signature
+- **WHEN** an Evaluate operation has a missing signature or one that is invalid for its evaluator identifier
+- **THEN** the node rejects the operation without storing an endorsement
+
+#### Scenario: No additional authentication gate
+- **WHEN** the app can sign a valid Interfold Evaluate for an evaluator who has not logged in to an app account or enrolled a passkey
+- **THEN** the app permits submission under the existing node protocol and operation limits
 
 ### Requirement: Interfold answer encoding
 
@@ -34,7 +44,7 @@ The live writer SHALL send Evaluate with domain Interfold, category Keyholder, S
 
 ### Requirement: Current evidence through existing connection reads
 
-Consumers SHALL obtain current Interfold answers from the operator's inbound connections, select domain Interfold and the three categories in Interfold answer encoding, and retain evaluator identity, answer, confidence, and modification time. They SHALL exclude malformed answers and practice records. A replacement SHALL contribute only the current answer for its evaluator, operator, domain, and category.
+Consumers SHALL read current answers from auraEvaluations on the operator's inbound connections, select domain Interfold and the categories in Interfold answer encoding, and retain evaluator identity, answer, confidence, and modification time. They SHALL exclude malformed answers and practice records. A replacement SHALL contribute only the current answer for its evaluator, operator, domain, and category.
 
 #### Scenario: Mixed evidence and replacement
 - **WHEN** inbound connections include BrightID records, unknown Interfold categories, and a replaced Interfold answer
@@ -44,9 +54,21 @@ Consumers SHALL obtain current Interfold answers from the operator's inbound con
 - **WHEN** an Interfold record has a confidence outside integer values 1 through 4
 - **THEN** the consumer excludes it from the displayed endorsement evidence
 
+### Requirement: Summaries use evaluation evidence
+
+A connection without a qualifying Interfold evaluation SHALL contribute no endorsement. Any app summary SHALL derive only from qualifying evaluations selected by Current evidence through existing connection reads and SHALL be labeled as an app-calculated summary.
+
+#### Scenario: Connection without an evaluation
+- **WHEN** an inbound connection contains no qualifying Interfold evaluation
+- **THEN** neither the evidence view nor an app summary counts that connection as an endorsement
+
+#### Scenario: Summary derived from evaluations
+- **WHEN** an app summarizes current Interfold endorsements
+- **THEN** it uses only qualifying stored evaluations and labels the result as an app-calculated summary
+
 ### Requirement: No admission decision before policy acceptance
 
-Until Philip and Adam accept an Interfold admission policy, consuming applications SHALL show endorsements without declaring an operator admitted, automatically eligible, or assigned a weighted Aura level. They SHALL NOT describe an unsigned evidence response or a locally calculated summary as a node-signed verification.
+Until Philip and Adam accept an Interfold admission policy, consuming applications SHALL show endorsements without declaring an operator admitted, automatically eligible, or assigned a weighted Aura level. They SHALL NOT describe a connection response or an app-calculated summary as independent proof of an evaluation signature or as a node-signed verification.
 
 #### Scenario: Several Yes answers without an accepted policy
 - **WHEN** an operator has multiple Yes endorsements and no admission policy has been accepted
@@ -56,9 +78,9 @@ Until Philip and Adam accept an Interfold admission policy, consuming applicatio
 - **WHEN** current endorsements include both Yes and No
 - **THEN** both remain visible without applying an invented veto or majority rule
 
-#### Scenario: Unsigned evidence and local summaries
-- **WHEN** the view displays an unsigned connection response or a summary calculated by the app
-- **THEN** it identifies the data as endorsement evidence and does not claim a node-signed verification
+#### Scenario: Stored evaluations and signature claims
+- **WHEN** the view displays stored evaluations from an inbound connection response or a summary calculated from them
+- **THEN** it identifies the evaluations as records returned by the queried node and the summary as app-calculated, without claiming that either is independent signature proof or a node-signed verification
 
 ### Requirement: Independent live and practice capabilities
 
